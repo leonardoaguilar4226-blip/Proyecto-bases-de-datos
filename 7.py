@@ -69,8 +69,8 @@ class Main(QMainWindow):
         accion_registrar = QtWidgets.QAction("📝 Registrar", self)
         accion_registrar.triggered.connect(self.abrir_registro)
 
-        accion_consulta_gral = QtWidgets.QAction("📋 Consulta General", self)
-        accion_consulta_gral.triggered.connect(self.abrir_consulta_gral)
+        accion_logout = QtWidgets.QAction("🚪 Cerrar Sesión", self)
+        accion_logout.triggered.connect(self.cerrar_sesion)
         
         # Crear el menú que se despliega al presionar el botón
         menu_desplegable = QtWidgets.QMenu(self)
@@ -155,7 +155,7 @@ class RegistroEmpleado(QDialog):
         self.input_fecha.setPlaceholderText("DD-MM-YYYY")
         
         self.combo_turno = QtWidgets.QComboBox()
-        self.combo_turno.addItems(["Matutino", "Vespertino"])
+        self.combo_turno.addItems(["Matutino", "Vespertino", "Nocturno"])
         
         form_layout.addRow("Código:", self.input_codigo)
         form_layout.addRow("Nombre:", self.input_nombre)
@@ -304,5 +304,55 @@ ventana.show()
 app.exec()
 
 #Cerrar conexión al salir
+cursor.close()
+conexion.close()
+=======
+import psycopg2 as psy
+from PyQt5 import QtWidgets, uic
+from PyQt5.QtWidgets import QApplication, QMainWindow
+import sys
+
+conexion = psy.connect(
+    database = "Biblioteca",
+    host = "localhost",
+    port = 5432,
+    user = "postgres",
+    password = "12345"
+
+)
+
+cursor = conexion.cursor()
+
+class MiVentana(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        
+        self.setWindowTitle("BiblioAlegria")
+        relf.resize(300,200)
+
+app = QtWidgets.QApplication([])
+ventana = uic.loadUi(r'C:\Users\eric_\Desktop\BD_PROYECTO\AV1\6.ui')
+
+
+def login():
+    usuario = ventana.input_user.text()
+    password = ventana.input_pass.text()
+
+    consulta = 'SELECT * FROM "Usuario" WHERE nombre_del_usuario = %s AND contrasena = %s'
+    cursor.execute(consulta, (usuario, password))
+
+    resultado = cursor.fetchone()
+
+    if resultado:
+        print("Login correcto")
+    else:
+        print("Usuario o contraseña incorrectos")
+
+
+ventana.btn_login.clicked.connect(login)
+
+ventana.show()
+app.exec()
+
 cursor.close()
 conexion.close()
