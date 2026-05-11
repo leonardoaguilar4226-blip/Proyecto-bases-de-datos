@@ -97,6 +97,68 @@ class Main(QMainWindow):
         # Asignar el menú al botón
         self.btn_empleados.setMenu(menu_desplegable)
 
+        # 🔹 Crear el botón "ALUMNOS" al lado del de empleados
+        self.btn_alumnos = QtWidgets.QPushButton("🎓 MENÚ ALUMNOS", self.centralwidget)
+        self.btn_alumnos.setGeometry(230, 100, 200, 40)
+        self.btn_alumnos.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        self.btn_alumnos.setStyleSheet("""
+            QPushButton {
+                background-color: #2980B9;
+                color: white;
+                font: bold 10pt "Berlin Sans FB Demi";
+                border-radius: 8px;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #3498DB;
+            }
+            QPushButton::menu-indicator {
+                subcontrol-origin: padding;
+                subcontrol-position: center right;
+                right: 10px;
+            }
+        """)
+
+        # Acciones para el menú de Alumnos
+        accion_reg_alumno = QtWidgets.QAction("📝 Registrar", self)
+        accion_reg_alumno.triggered.connect(self.abrir_registro_alumno)
+
+        accion_cons_ind_alumno = QtWidgets.QAction("🔍 Consulta Individual", self)
+        # placeholder para individual
+
+        accion_cons_gral_alumno = QtWidgets.QAction("📋 Consulta General", self)
+        accion_cons_gral_alumno.triggered.connect(self.abrir_consulta_gral_alumno)
+
+        accion_cambiar_alumno = QtWidgets.QAction("✏️ Cambiar", self)
+        # placeholder para cambiar
+
+        accion_eliminar_alumno = QtWidgets.QAction("❌ Eliminar", self)
+        # placeholder para eliminar
+
+        # Crear el menú que se despliega al presionar el botón de Alumnos
+        menu_alumnos = QtWidgets.QMenu(self)
+        menu_alumnos.setStyleSheet("""
+            QMenu {
+                background-color: white;
+                border: 1px solid #2980B9;
+            }
+            QMenu::item {
+                padding: 8px 25px;
+                font: 10pt "Arial";
+            }
+            QMenu::item:selected {
+                background-color: #F5F6FA;
+                color: #2980B9;
+            }
+        """)
+        menu_alumnos.addAction(accion_reg_alumno)
+        menu_alumnos.addAction(accion_cons_ind_alumno)
+        menu_alumnos.addAction(accion_cons_gral_alumno)
+        menu_alumnos.addAction(accion_cambiar_alumno)
+        menu_alumnos.addAction(accion_eliminar_alumno)
+
+        self.btn_alumnos.setMenu(menu_alumnos)
+
         # 🔹 Botón de Cerrar Sesión en el Banner (al lado del usuario)
         self.btn_logout = QtWidgets.QPushButton("🚪 CERRAR SESIÓN", self.barra)
         self.btn_logout.setGeometry(810, 20, 140, 40)
@@ -126,6 +188,14 @@ class Main(QMainWindow):
     def abrir_consulta_gral(self):
         self.ventana_consulta = ConsultaGeneral()
         self.ventana_consulta.exec_()
+
+    def abrir_registro_alumno(self):
+        self.ventana_registro_al = RegistroAlumno()
+        self.ventana_registro_al.exec_()
+
+    def abrir_consulta_gral_alumno(self):
+        self.ventana_consulta_al = ConsultaGeneralAlumno()
+        self.ventana_consulta_al.exec_()
 
     def cerrar_sesion(self):
         self.login = MiVentana()
@@ -185,6 +255,74 @@ class RegistroEmpleado(QDialog):
                 int(self.input_codigo.text()), # Convertir a entero para el campo integer
                 self.input_nombre.text(),
                 self.input_direccion.text(),
+                self.input_departamento.text(),
+                self.combo_ .currentText(),
+                self.input_fecha.text(),
+                self.combo_turno.currentText()
+            )
+            
+            cursor.execute(consulta_sql, datos_formateados)
+            conexion.commit()
+            
+            QtWidgets.QMessageBox.information(self, "Éxito", "Empleado registrado correctamente en la base de datos.")
+            self.close()
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Error de Datos", "El Código debe ser un número entero.")
+        except Exception as e:
+            conexion.rollback() # Revertir en caso de error
+            QtWidgets.QMessageBox.warning(self, "Error", f"Hubo un problema al registrar en la BD: {e}")
+
+class RegistroAlumnos(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Registro de Alumnos")
+        self.resize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout()
+        form_layout = QtWidgets.QFormLayout()
+        
+        self.input_codigo = QtWidgets.QLineEdit()
+        self.input_nombre = QtWidgets.QLineEdit()
+        self.input_direccion = QtWidgets.QLineEdit()
+        self.input_telefono = QtWidgets.QLineEdit()
+        
+        self.combo_sexo = QtWidgets.QComboBox()
+        self.combo_sexo.addItems(["F", "M"])
+        
+        self.input_fecha = QtWidgets.QLineEdit()
+        self.input_fecha.setPlaceholderText("DD-MM-YYYY")
+        
+        self.combo_turno = QtWidgets.QComboBox()
+        self.combo_turno.addItems(["Matutino", "Vespertino"])
+        
+        form_layout.addRow("Código:", self.input_codigo)
+        form_layout.addRow("Nombre:", self.input_nombre)
+        form_layout.addRow("Dirección:", self.input_direccion)
+        form_layout.addRow("Teléfono:", self.input_telefono)
+        form_layout.addRow("Sexo:", self.combo_sexo)
+        form_layout.addRow("Fecha de nac:", self.input_fecha)
+        form_layout.addRow("Turno:", self.combo_turno)
+        
+        self.btn_registrar = QtWidgets.QPushButton("Registrar")
+        self.btn_registrar.clicked.connect(self.registrar_alumno)
+        
+        layout.addLayout(form_layout)
+        layout.addWidget(self.btn_registrar)
+        self.setLayout(layout)
+
+    def registrar_alumno(self):
+        # Instrucción de SQL empotrada para el alta (como se solicitó en el paso 8)
+        consulta_sql = '''
+            INSERT INTO alumno (codigo, nombre, direccion, telefono, sexo, fecha_nac, turno)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        '''
+        
+        try:
+            # Ejecutar la inserción en la base de datos
+            datos_formateados = (
+                int(self.input_codigo.text()), # Convertir a entero para el campo integer
+                self.input_nombre.text(),
+                self.input_direccion.text(),
                 self.input_telefono.text(),
                 self.combo_sexo.currentText(),
                 self.input_fecha.text(),
@@ -194,7 +332,7 @@ class RegistroEmpleado(QDialog):
             cursor.execute(consulta_sql, datos_formateados)
             conexion.commit()
             
-            QtWidgets.QMessageBox.information(self, "Éxito", "Empleado registrado correctamente en la base de datos.")
+            QtWidgets.QMessageBox.information(self, "Éxito", "Alumno registrado correctamente en la base de datos.")
             self.close()
         except ValueError:
             QtWidgets.QMessageBox.warning(self, "Error de Datos", "El Código debe ser un número entero.")
@@ -248,6 +386,119 @@ class ConsultaGeneral(QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los datos: {e}")
 
 
+# 🔹 FORMULARIO DE REGISTRO DE ALUMNOS
+class RegistroAlumno(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Registro de Alumno")
+        self.resize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout()
+        form_layout = QtWidgets.QFormLayout()
+        
+        self.input_codigo = QtWidgets.QLineEdit()
+        self.input_nombre = QtWidgets.QLineEdit()
+        self.input_carrera = QtWidgets.QLineEdit()
+        self.input_correo = QtWidgets.QLineEdit()
+        self.input_direccion = QtWidgets.QLineEdit()
+        self.input_telefono = QtWidgets.QLineEdit()
+        
+        self.combo_sexo = QtWidgets.QComboBox()
+        self.combo_sexo.addItems(["F", "M"])
+        
+        self.input_fecha = QtWidgets.QLineEdit()
+        self.input_fecha.setPlaceholderText("DD-MM-YYYY")
+        
+        form_layout.addRow("Código:", self.input_codigo)
+        form_layout.addRow("Nombre:", self.input_nombre)
+        form_layout.addRow("Carrera:", self.input_carrera)
+        form_layout.addRow("Correo:", self.input_correo)
+        form_layout.addRow("Dirección:", self.input_direccion)
+        form_layout.addRow("Teléfono:", self.input_telefono)
+        form_layout.addRow("Sexo:", self.combo_sexo)
+        form_layout.addRow("Fecha Nacimiento:", self.input_fecha)
+        
+        self.btn_registrar = QtWidgets.QPushButton("Registrar")
+        self.btn_registrar.clicked.connect(self.registrar_alumno)
+        
+        layout.addLayout(form_layout)
+        layout.addWidget(self.btn_registrar)
+        self.setLayout(layout)
+
+    def registrar_alumno(self):
+        consulta_sql = '''
+            INSERT INTO alumnos (codigo, nombre, carrera, correo, direccion, telefono, sexo, fecha_nac)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        '''
+        
+        try:
+            datos_formateados = (
+                int(self.input_codigo.text()),
+                self.input_nombre.text(),
+                self.input_carrera.text(),
+                self.input_correo.text(),
+                self.input_direccion.text(),
+                self.input_telefono.text(),
+                self.combo_sexo.currentText(),
+                self.input_fecha.text()
+            )
+            
+            cursor.execute(consulta_sql, datos_formateados)
+            conexion.commit()
+            
+            QtWidgets.QMessageBox.information(self, "Éxito", "Alumno registrado correctamente.")
+            self.close()
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Error de Datos", "El Código debe ser un número entero.")
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.warning(self, "Error", f"Hubo un problema al registrar en la BD: {e}")
+
+
+# 🔹 VENTANA DE CONSULTA GENERAL DE ALUMNOS
+class ConsultaGeneralAlumno(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Consulta General de Alumnos")
+        self.resize(850, 500)
+        
+        layout = QtWidgets.QVBoxLayout()
+        
+        self.titulo = QtWidgets.QLabel("LISTADO GENERAL DE ALUMNOS")
+        self.titulo.setStyleSheet("font: bold 14pt 'Arial'; color: #2980B9; margin-bottom: 10px;")
+        self.titulo.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(self.titulo)
+        
+        self.tabla = QtWidgets.QTableWidget()
+        self.tabla.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.tabla.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tabla.setAlternatingRowColors(True)
+        self.tabla.setStyleSheet("QHeaderView::section { background-color: #2980B9; color: white; font-weight: bold; }")
+        
+        layout.addWidget(self.tabla)
+        self.setLayout(layout)
+        
+        self.cargar_datos()
+
+    def cargar_datos(self):
+        try:
+            cursor.execute("SELECT * FROM alumnos ORDER BY codigo ASC")
+            filas = cursor.fetchall()
+            
+            self.tabla.setRowCount(len(filas))
+            self.tabla.setColumnCount(8)
+            self.tabla.setHorizontalHeaderLabels(["Código", "Nombre", "Carrera", "Correo", "Dirección", "Teléfono", "Sexo", "Fecha Nac."])
+            
+            for i, fila in enumerate(filas):
+                for j, valor in enumerate(fila):
+                    item = QtWidgets.QTableWidgetItem(str(valor))
+                    self.tabla.setItem(i, j, item)
+            
+            self.tabla.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los datos: {e}")
+
+
 
 #VENTANA DE LOGEO
 class MiVentana(QDialog):
@@ -261,6 +512,9 @@ class MiVentana(QDialog):
         self.setWindowIcon(QIcon(os.path.join(base_path, 'icono.ico')))
 
         self.btn_login.clicked.connect(self.login)
+        
+        # Enmascarar la contraseña
+        self.input_pass.setEchoMode(QtWidgets.QLineEdit.Password)
 
     def login(self):
         usuario = self.input_user.text()
