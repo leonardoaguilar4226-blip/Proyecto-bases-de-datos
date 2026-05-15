@@ -406,8 +406,8 @@ class RegistroAlumno(QDialog):
         self.combo_sexo = QtWidgets.QComboBox()
         self.combo_sexo.addItems(["F", "M"])
         
-        self.input_fecha = QtWidgets.QLineEdit()
-        self.input_fecha.setPlaceholderText("DD-MM-YYYY")
+        self.input_fecha_nac = QtWidgets.QLineEdit()
+        self.input_fecha_nac.setPlaceholderText("DD-MM-YYYY")
         
         form_layout.addRow("Código:", self.input_codigo)
         form_layout.addRow("Nombre:", self.input_nombre)
@@ -416,7 +416,7 @@ class RegistroAlumno(QDialog):
         form_layout.addRow("Dirección:", self.input_direccion)
         form_layout.addRow("Teléfono:", self.input_telefono)
         form_layout.addRow("Sexo:", self.combo_sexo)
-        form_layout.addRow("Fecha Nacimiento:", self.input_fecha)
+        form_layout.addRow("Fecha Nacimiento:", self.input_fecha_nac)
         
         self.btn_registrar = QtWidgets.QPushButton("Registrar")
         self.btn_registrar.clicked.connect(self.registrar_alumno)
@@ -440,7 +440,7 @@ class RegistroAlumno(QDialog):
                 self.input_direccion.text(),
                 self.input_telefono.text(),
                 self.combo_sexo.currentText(),
-                self.input_fecha.text()
+                self.input_fecha_nac.text()
             )
             
             cursor.execute(consulta_sql, datos_formateados)
@@ -487,7 +487,7 @@ class ConsultaGeneralAlumno(QDialog):
             
             self.tabla.setRowCount(len(filas))
             self.tabla.setColumnCount(8)
-            self.tabla.setHorizontalHeaderLabels(["Código", "Nombre", "Carrera", "Correo", "Dirección", "Teléfono", "Sexo", "Fecha Nac."])
+            self.tabla.setHorizontalHeaderLabels(["Código", "Nombre", "Carrera", "Correo", "Dirección", "Teléfono", "Sexo", "Fecha Nacimiento."])
             
             for i, fila in enumerate(filas):
                 for j, valor in enumerate(fila):
@@ -507,6 +507,10 @@ class MiVentana(QDialog):
         import os
         base_path = os.path.dirname(__file__)
         uic.loadUi(os.path.join(base_path, 'AV1', '6.ui'), self)
+        
+        # Reducir el tamaño de fuente conservando el tipo de letra original para que no se encimen
+        self.label_2.setStyleSheet('color: white; background-color: none; font: 25 24pt "Bodoni MT Poster Compressed";')
+        self.label_3.setStyleSheet('color: white; background-color: none; font: 25 24pt "Bodoni MT Poster Compressed";')
         
         self.setWindowTitle("LibraryControl - Login")
         self.setWindowIcon(QIcon(os.path.join(base_path, 'icono.ico')))
