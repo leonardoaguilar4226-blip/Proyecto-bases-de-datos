@@ -97,6 +97,16 @@ class Main(QMainWindow):
         # Asignar el menú al botón
         self.btn_empleados.setMenu(menu_desplegable)
 
+        # Conectar acciones de Empleados
+        accion_cons_ind_emp = menu_desplegable.actions()[1]
+        accion_cons_ind_emp.triggered.connect(self.abrir_consulta_individual_emp)
+        
+        accion_cambiar_emp = menu_desplegable.actions()[3]
+        accion_cambiar_emp.triggered.connect(self.abrir_editar_emp)
+        
+        accion_eliminar_emp = menu_desplegable.actions()[4]
+        accion_eliminar_emp.triggered.connect(self.abrir_eliminar_emp)
+
         # 🔹 Crear el botón "ALUMNOS" al lado del de empleados
         self.btn_alumnos = QtWidgets.QPushButton("🎓 MENÚ ALUMNOS", self.centralwidget)
         self.btn_alumnos.setGeometry(230, 100, 200, 40)
@@ -124,16 +134,16 @@ class Main(QMainWindow):
         accion_reg_alumno.triggered.connect(self.abrir_registro_alumno)
 
         accion_cons_ind_alumno = QtWidgets.QAction("🔍 Consulta Individual", self)
-        # placeholder para individual
+        accion_cons_ind_alumno.triggered.connect(self.abrir_consulta_individual_al)
 
         accion_cons_gral_alumno = QtWidgets.QAction("📋 Consulta General", self)
         accion_cons_gral_alumno.triggered.connect(self.abrir_consulta_gral_alumno)
 
         accion_cambiar_alumno = QtWidgets.QAction("✏️ Cambiar", self)
-        # placeholder para cambiar
+        accion_cambiar_alumno.triggered.connect(self.abrir_editar_al)
 
         accion_eliminar_alumno = QtWidgets.QAction("❌ Eliminar", self)
-        # placeholder para eliminar
+        accion_eliminar_alumno.triggered.connect(self.abrir_eliminar_al)
 
         # Crear el menú que se despliega al presionar el botón de Alumnos
         menu_alumnos = QtWidgets.QMenu(self)
@@ -158,6 +168,67 @@ class Main(QMainWindow):
         menu_alumnos.addAction(accion_eliminar_alumno)
 
         self.btn_alumnos.setMenu(menu_alumnos)
+
+        # 🔹 Crear el botón "PROFESORES" al lado del de alumnos
+        self.btn_profesores = QtWidgets.QPushButton("👨‍🏫 MENÚ PROFESORES", self.centralwidget)
+        self.btn_profesores.setGeometry(440, 100, 200, 40)
+        self.btn_profesores.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
+        self.btn_profesores.setStyleSheet("""
+            QPushButton {
+                background-color: #27AE60;
+                color: white;
+                font: bold 10pt "Berlin Sans FB Demi";
+                border-radius: 8px;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #2ECC71;
+            }
+            QPushButton::menu-indicator {
+                subcontrol-origin: padding;
+                subcontrol-position: center right;
+                right: 10px;
+            }
+        """)
+
+        # Acciones para Profesores
+        accion_reg_prof = QtWidgets.QAction("📝 Registrar", self)
+        accion_reg_prof.triggered.connect(self.abrir_registro_profesor)
+
+        accion_cons_ind_prof = QtWidgets.QAction("🔍 Consulta Individual", self)
+        accion_cons_ind_prof.triggered.connect(self.abrir_consulta_individual_prof)
+
+        accion_cons_gral_prof = QtWidgets.QAction("📋 Consulta General", self)
+        accion_cons_gral_prof.triggered.connect(self.abrir_consulta_profesores)
+
+        accion_cambiar_prof = QtWidgets.QAction("✏️ Cambiar", self)
+        accion_cambiar_prof.triggered.connect(self.abrir_editar_prof)
+
+        accion_eliminar_prof = QtWidgets.QAction("❌ Eliminar", self)
+        accion_eliminar_prof.triggered.connect(self.abrir_eliminar_prof)
+
+        menu_profesores = QtWidgets.QMenu(self)
+        menu_profesores.setStyleSheet("""
+            QMenu {
+                background-color: white;
+                border: 1px solid #27AE60;
+            }
+            QMenu::item {
+                padding: 8px 25px;
+                font: 10pt "Arial";
+            }
+            QMenu::item:selected {
+                background-color: #F5F6FA;
+                color: #27AE60;
+            }
+        """)
+        menu_profesores.addAction(accion_reg_prof)
+        menu_profesores.addAction(accion_cons_ind_prof)
+        menu_profesores.addAction(accion_cons_gral_prof)
+        menu_profesores.addAction(accion_cambiar_prof)
+        menu_profesores.addAction(accion_eliminar_prof)
+
+        self.btn_profesores.setMenu(menu_profesores)
 
         # 🔹 Botón de Cerrar Sesión en el Banner (al lado del usuario)
         self.btn_logout = QtWidgets.QPushButton("🚪 CERRAR SESIÓN", self.barra)
@@ -196,6 +267,50 @@ class Main(QMainWindow):
     def abrir_consulta_gral_alumno(self):
         self.ventana_consulta_al = ConsultaGeneralAlumno()
         self.ventana_consulta_al.exec_()
+
+    def abrir_registro_profesor(self):
+        self.ventana_reg_prof = RegistroProfesor()
+        self.ventana_reg_prof.exec_()
+
+    def abrir_consulta_profesores(self):
+        self.ventana_cons_prof = ConsultaProfesores()
+        self.ventana_cons_prof.exec_()
+
+    def abrir_consulta_individual_emp(self):
+        self.ventana = ConsultaIndividual("empleado")
+        self.ventana.exec_()
+
+    def abrir_editar_emp(self):
+        self.ventana = EditarRegistro("empleado")
+        self.ventana.exec_()
+
+    def abrir_eliminar_emp(self):
+        self.ventana = EliminarRegistro("empleado")
+        self.ventana.exec_()
+
+    def abrir_consulta_individual_al(self):
+        self.ventana = ConsultaIndividual("alumnos")
+        self.ventana.exec_()
+
+    def abrir_editar_al(self):
+        self.ventana = EditarRegistro("alumnos")
+        self.ventana.exec_()
+
+    def abrir_eliminar_al(self):
+        self.ventana = EliminarRegistro("alumnos")
+        self.ventana.exec_()
+
+    def abrir_consulta_individual_prof(self):
+        self.ventana = ConsultaIndividual("maestros")
+        self.ventana.exec_()
+
+    def abrir_editar_prof(self):
+        self.ventana = EditarRegistro("maestros")
+        self.ventana.exec_()
+
+    def abrir_eliminar_prof(self):
+        self.ventana = EliminarRegistro("maestros")
+        self.ventana.exec_()
 
     def cerrar_sesion(self):
         self.login = MiVentana()
@@ -497,6 +612,249 @@ class ConsultaGeneralAlumno(QDialog):
             self.tabla.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los datos: {e}")
+
+
+# 🔹 FORMULARIO DE REGISTRO DE PROFESORES
+class RegistroProfesor(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Registro de Profesor")
+        self.resize(400, 350)
+        
+        layout = QtWidgets.QVBoxLayout()
+        form_layout = QtWidgets.QFormLayout()
+        
+        self.input_codigo = QtWidgets.QLineEdit()
+        self.input_nombre = QtWidgets.QLineEdit()
+        self.input_departamento = QtWidgets.QLineEdit()
+        self.input_correo = QtWidgets.QLineEdit()
+        self.input_direccion = QtWidgets.QLineEdit()
+        self.input_telefono = QtWidgets.QLineEdit()
+        
+        self.combo_sexo = QtWidgets.QComboBox()
+        self.combo_sexo.addItems(["F", "M"])
+        
+        self.input_fecha_nac = QtWidgets.QLineEdit()
+        self.input_fecha_nac.setPlaceholderText("DD-MM-YYYY")
+        
+        form_layout.addRow("Código:", self.input_codigo)
+        form_layout.addRow("Nombre:", self.input_nombre)
+        form_layout.addRow("Departamento:", self.input_departamento)
+        form_layout.addRow("Correo:", self.input_correo)
+        form_layout.addRow("Dirección:", self.input_direccion)
+        form_layout.addRow("Teléfono:", self.input_telefono)
+        form_layout.addRow("Sexo:", self.combo_sexo)
+        form_layout.addRow("Fecha Nacimiento:", self.input_fecha_nac)
+        
+        self.btn_registrar = QtWidgets.QPushButton("Registrar")
+        self.btn_registrar.clicked.connect(self.registrar_profesor)
+        
+        layout.addLayout(form_layout)
+        layout.addWidget(self.btn_registrar)
+        self.setLayout(layout)
+
+    def registrar_profesor(self):
+        consulta_sql = '''
+            INSERT INTO maestros (codigo, nombre, departamento, correo, direccion, telefono, sexo, fecha_nac)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        '''
+        
+        try:
+            datos = (
+                int(self.input_codigo.text()),
+                self.input_nombre.text(),
+                self.input_departamento.text(),
+                self.input_correo.text(),
+                self.input_direccion.text(),
+                self.input_telefono.text(),
+                self.combo_sexo.currentText(),
+                self.input_fecha_nac.text()
+            )
+            
+            cursor.execute(consulta_sql, datos)
+            conexion.commit()
+            
+            QtWidgets.QMessageBox.information(self, "Éxito", "Maestro registrado correctamente.")
+            self.close()
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Error", "El código debe ser numérico.")
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo registrar: {e}")
+
+
+# 🔹 VENTANA DE CONSULTA GENERAL DE PROFESORES
+class ConsultaProfesores(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Consulta General de Profesores")
+        self.resize(850, 500)
+        
+        layout = QtWidgets.QVBoxLayout()
+        
+        self.titulo = QtWidgets.QLabel("LISTADO GENERAL DE PROFESORES")
+        self.titulo.setStyleSheet("font: bold 14pt 'Arial'; color: #27AE60; margin-bottom: 10px;")
+        self.titulo.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(self.titulo)
+        
+        self.tabla = QtWidgets.QTableWidget()
+        self.tabla.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.tabla.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tabla.setAlternatingRowColors(True)
+        self.tabla.setStyleSheet("QHeaderView::section { background-color: #27AE60; color: white; font-weight: bold; }")
+        
+        layout.addWidget(self.tabla)
+        self.setLayout(layout)
+        
+        self.cargar_datos()
+
+    def cargar_datos(self):
+        try:
+            cursor.execute("SELECT codigo, nombre, departamento, correo, direccion, telefono, sexo, fecha_nac FROM maestros ORDER BY codigo ASC")
+            filas = cursor.fetchall()
+            
+            self.tabla.setRowCount(len(filas))
+            self.tabla.setColumnCount(8)
+            self.tabla.setHorizontalHeaderLabels(["Código", "Nombre", "Departamento", "Correo", "Dirección", "Teléfono", "Sexo", "Fecha Nac."])
+            
+            for i, fila in enumerate(filas):
+                for j, valor in enumerate(fila):
+                    self.tabla.setItem(i, j, QtWidgets.QTableWidgetItem(str(valor)))
+            
+            self.tabla.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los datos: {e}")
+
+
+# 🔹 CLASES GENÉRICAS (Consulta Individual, Editar, Eliminar)
+
+class ConsultaIndividual(QDialog):
+    def __init__(self, tabla):
+        super().__init__()
+        self.tabla_nombre = tabla
+        self.setWindowTitle(f"Consulta Individual - {tabla.capitalize()}")
+        self.resize(400, 250)
+        
+        layout = QtWidgets.QVBoxLayout()
+        
+        self.input_codigo = QtWidgets.QLineEdit()
+        self.input_codigo.setPlaceholderText("Ingrese código a buscar")
+        
+        self.btn_buscar = QtWidgets.QPushButton("Buscar")
+        self.btn_buscar.clicked.connect(self.buscar)
+        
+        self.resultado = QtWidgets.QTextEdit()
+        self.resultado.setReadOnly(True)
+        
+        layout.addWidget(QtWidgets.QLabel(f"Buscar en {tabla}:"))
+        layout.addWidget(self.input_codigo)
+        layout.addWidget(self.btn_buscar)
+        layout.addWidget(self.resultado)
+        self.setLayout(layout)
+
+    def buscar(self):
+        codigo = self.input_codigo.text()
+        try:
+            # Determinamos la columna de código según la tabla (alumnos usa 'codigo', empleado usa 'codigo', profesor usa 'codigo')
+            # En tu caso, todas parecen usar 'codigo' ahora.
+            cursor.execute(f"SELECT * FROM {self.tabla_nombre} WHERE codigo = %s", (codigo,))
+            fila = cursor.fetchone()
+            
+            if fila:
+                # Obtener nombres de columnas
+                cursor.execute(f"SELECT column_name FROM information_schema.columns WHERE table_name = '{self.tabla_nombre}' ORDER BY ordinal_position")
+                columnas = [col[0] for col in cursor.fetchall()]
+                
+                texto = ""
+                for col, val in zip(columnas, fila):
+                    texto += f"<b>{col.capitalize()}:</b> {val}<br>"
+                self.resultado.setHtml(texto)
+            else:
+                self.resultado.setText("No se encontró ningún registro con ese código.")
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error en la búsqueda: {e}")
+
+
+class EditarRegistro(QDialog):
+    def __init__(self, tabla):
+        super().__init__()
+        self.tabla_nombre = tabla
+        self.setWindowTitle(f"Cambiar Datos - {tabla.capitalize()}")
+        self.resize(400, 200)
+        
+        layout = QtWidgets.QVBoxLayout()
+        form_layout = QtWidgets.QFormLayout()
+        
+        self.input_codigo = QtWidgets.QLineEdit()
+        self.input_nombre = QtWidgets.QLineEdit()
+        
+        form_layout.addRow("Código del registro:", self.input_codigo)
+        form_layout.addRow("Nuevo Nombre:", self.input_nombre)
+        
+        self.btn_actualizar = QtWidgets.QPushButton("Actualizar")
+        self.btn_actualizar.clicked.connect(self.actualizar)
+        
+        layout.addLayout(form_layout)
+        layout.addWidget(self.btn_actualizar)
+        self.setLayout(layout)
+
+    def actualizar(self):
+        try:
+            codigo = self.input_codigo.text()
+            nombre = self.input_nombre.text()
+            
+            cursor.execute(f"UPDATE {self.tabla_nombre} SET nombre = %s WHERE codigo = %s", (nombre, codigo))
+            conexion.commit()
+            
+            if cursor.rowcount > 0:
+                QtWidgets.QMessageBox.information(self, "Éxito", "Registro actualizado correctamente.")
+                self.close()
+            else:
+                QtWidgets.QMessageBox.warning(self, "Error", "No se encontró el registro o no hubo cambios.")
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo actualizar: {e}")
+
+
+class EliminarRegistro(QDialog):
+    def __init__(self, tabla):
+        super().__init__()
+        self.tabla_nombre = tabla
+        self.setWindowTitle(f"Eliminar Registro - {tabla.capitalize()}")
+        self.resize(350, 150)
+        
+        layout = QtWidgets.QVBoxLayout()
+        
+        self.input_codigo = QtWidgets.QLineEdit()
+        self.input_codigo.setPlaceholderText("Código a eliminar")
+        
+        self.btn_eliminar = QtWidgets.QPushButton("Eliminar")
+        self.btn_eliminar.clicked.connect(self.eliminar)
+        
+        layout.addWidget(QtWidgets.QLabel(f"¿Qué código deseas eliminar de {tabla}?"))
+        layout.addWidget(self.input_codigo)
+        layout.addWidget(self.btn_eliminar)
+        self.setLayout(layout)
+
+    def eliminar(self):
+        codigo = self.input_codigo.text()
+        if not codigo: return
+        
+        confirm = QtWidgets.QMessageBox.question(self, "Confirmar", f"¿Estás seguro de eliminar el registro {codigo} de {self.tabla_nombre}?", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+        
+        if confirm == QtWidgets.QMessageBox.Yes:
+            try:
+                cursor.execute(f"DELETE FROM {self.tabla_nombre} WHERE codigo = %s", (codigo,))
+                conexion.commit()
+                
+                if cursor.rowcount > 0:
+                    QtWidgets.QMessageBox.information(self, "Éxito", "Registro eliminado correctamente.")
+                    self.close()
+                else:
+                    QtWidgets.QMessageBox.warning(self, "Error", "No se encontró el registro.")
+            except Exception as e:
+                conexion.rollback()
+                QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo eliminar: {e}")
 
 
 
