@@ -230,6 +230,13 @@ class Main(QMainWindow):
 
         self.btn_profesores.setMenu(menu_profesores)
 
+        # 🔹 Control de Acceso: Solo el 'admin' ve estos menús
+        if usuario.lower() != "admin":
+            self.btn_empleados.hide()
+            self.btn_alumnos.hide()
+            self.btn_profesores.hide()
+            # El menú de libros se implementará luego y será visible para todos
+
         # 🔹 Botón de Cerrar Sesión en el Banner (al lado del usuario)
         self.btn_logout = QtWidgets.QPushButton("🚪 CERRAR SESIÓN", self.barra)
         self.btn_logout.setGeometry(810, 20, 140, 40)
