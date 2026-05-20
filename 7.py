@@ -1,18 +1,27 @@
-import psycopg2 as psy
-from PyQt5 import QtWidgets, uic, QtCore
-from PyQt5.QtWidgets import QApplication, QDialog, QMainWindow
-from PyQt5.QtGui import QPixmap, QIcon, QCursor
-import sys
-import os
-import smtplib
-from email.message import EmailMessage
-from fpdf import FPDF
-import datetime
+# =====================================================================
+# SECCIÓN: IMPORTACIONES DE LIBRERÍAS
+# =====================================================================
+import psycopg2 as psy            # Librería para conectarse y hacer consultas a PostgreSQL
+from PyQt5 import QtWidgets, uic, QtCore  # Componentes de la interfaz gráfica (botones, ventanas, etc.)
+from PyQt5.QtWidgets import QApplication, QDialog, QMainWindow  # Tipos de ventana de PyQt5
+from PyQt5.QtGui import QPixmap, QIcon, QCursor  # Para imágenes, íconos y cursores en la interfaz
+import sys                        # Para cerrar el programa con sys.exit()
+import os                         # Para manejar rutas de archivos (ej. buscar main.ui)
+import smtplib                    # Para enviar correos electrónicos por SMTP (Gmail)
+from email.message import EmailMessage  # Para construir el mensaje del correo
+from fpdf import FPDF             # Para generar archivos PDF (recibos de multa)
+import datetime                   # Para manejar fechas (cálculo de multas)
 
 
+# Lista global para guardar referencias de las ventanas que se van abriendo.
+# Esto evita que Python las borre de la memoria (garbage collection) y se cierren solas.
 ventanas_abiertas = []
 
-# 🔹 Conexión a la BD
+# =====================================================================
+# SECCIÓN: CONEXIÓN A LA BASE DE DATOS
+# =====================================================================
+# Se intenta conectar a PostgreSQL usando la librería psycopg2.
+# Si los datos (host, puerto, usuario, contraseña) están mal, fallará.
 try:
     conexion = psy.connect(
         database="Biblioteca",
@@ -23,14 +32,24 @@ try:
     )
     cursor = conexion.cursor()
 except Exception as e:
+    # Si ocurre un error de conexión, se imprime el detalle en la consola
     print(f"Error al conectar a la base de datos: {e}")
-    # Si falla la conexión, mostramos un error y cerramos
+    
+    # Creamos la aplicación de interfaz gráfica solo para poder mostrar el mensaje visual de error
     app = QApplication(sys.argv)
+    
+    # Muestra un cuadro de diálogo rojo de error crítico explicando por qué no se pudo conectar
     QtWidgets.QMessageBox.critical(None, "Error de Conexión", 
         f"No se pudo conectar a la base de datos 'Biblioteca'.\n\nDetalle: {e}\n\nAsegúrate de que PostgreSQL esté iniciado y la base de datos exista.")
+    
+    # Cierra el programa completamente porque sin base de datos no puede funcionar
     sys.exit(1)
 
-#VENTANA PRINCIPAL OSEA EL MAIN
+# =====================================================================
+# CLASE: Main (VENTANA PRINCIPAL)
+# =====================================================================
+# Esta clase controla la ventana principal de la aplicación. 
+# Desde aquí el usuario navega a todas las demás opciones (Préstamos, Libros, Alumnos, etc.)
 class Main(QMainWindow):
     def __init__(self, usuario):
         super().__init__()
@@ -51,14 +70,23 @@ class Main(QMainWindow):
         self.setWindowIcon(QIcon(icon_path))
 
 
-        # 🔥 Mostrar usuario en la interfaz (asegúrate de tener un QLabel llamado label_user)
+        # ==============================================================
+        # SALUDO AL USUARIO
+        # ==============================================================
+        # Intentamos mostrar en las etiquetas "saludo" y "rol" de la interfaz gráfica 
+        # el nombre del usuario que acaba de iniciar sesión.
         try:
             self.saludo.setText(f"Hola Bienvenid@!,")
             self.rol.setText(f"{usuario}")
         except:
+            # Si el archivo de diseño main.ui no tiene estas etiquetas, ignoramos el error para que no se cierre la app
             pass
 
-        # Conectar los botones que ya vienen diseñados en main.ui.
+        # ==============================================================
+        # CONEXIÓN DE BOTONES CON FUNCIONES
+        # ==============================================================
+        # Aquí vinculamos el clic de cada botón de la interfaz con la función que debe ejecutar.
+        # Ejemplo: Cuando hagan clic en 'btnEmp01Registrar', se llamará a 'self.abrir_registro'.
         self.btnEmp01Registrar.clicked.connect(self.abrir_registro)
         self.btnEmp02ConsultaInd.clicked.connect(self.abrir_consulta_individual_emp)
         self.btnEmp03ConsultaGen.clicked.connect(self.abrir_consulta_gral)
@@ -82,7 +110,7 @@ class Main(QMainWindow):
         self.btnPrestConsulta.clicked.connect(self.abrir_consulta_prestamo)
         self.btnPrestConsultas.clicked.connect(self.abrir_consultas_prestamos)
 
-        # Los botones de libros estan en el diseno
+        # Conectar botones correspondientes al módulo de Libros
         self.btnLibRegistrar.clicked.connect(self.abrir_registro_libro)
         self.btnLibConsultaInd.clicked.connect(self.abrir_consulta_individual_lib)
         self.btnLibConsultaGen.clicked.connect(self.abrir_consulta_general_lib)
@@ -92,7 +120,12 @@ class Main(QMainWindow):
 
         self.btnCerrarSesion.clicked.connect(self.cerrar_sesion)
 
-        # 🔹 Control de Acceso: Solo el 'admin' ve estos menus
+        # ==============================================================
+        # CONTROL DE ACCESO (PERMISOS)
+        # ==============================================================
+        # Comparamos el nombre de usuario (en minúsculas). Si NO es "admin",
+        # se ocultan las columnas completas de gestión de Empleados, Estudiantes y Profesores.
+        # Esto hace que usuarios normales solo puedan ver Préstamos y Libros.
         if usuario.lower() != "admin":
             self.employeeColumn.hide()
             self.studentColumn.hide()
@@ -202,6 +235,10 @@ class Main(QMainWindow):
         self.close()
 
 
+# =====================================================================
+# CLASE: RegistroPrestamo (NUEVO PRÉSTAMO)
+# =====================================================================
+# Ventana que permite registrar cuando un usuario (Alumno o Maestro) se lleva un libro.
 class RegistroPrestamo(QDialog):
     def __init__(self):
         super().__init__()
@@ -245,6 +282,12 @@ class RegistroPrestamo(QDialog):
         layout.addWidget(self.btn_registrar)
         self.setLayout(layout)
 
+    # ==============================================================
+    # MÉTODO: obtener_tipo_solicitante
+    # ==============================================================
+    # Esta función averigua si el préstamo es para un Alumno ("A") o Maestro ("P")
+    # y hace una pequeña consulta técnica a la base de datos para saber si la
+    # columna 'tipo_solicitante' permite solo 1 letra o más, para evitar errores al guardar.
     def obtener_tipo_solicitante(self):
         tipo = self.combo_solicitante.currentData()
         try:
@@ -265,6 +308,12 @@ class RegistroPrestamo(QDialog):
             return tipo
         return "Alumno" if tipo == "A" else "Maestro"
 
+    # ==============================================================
+    # MÉTODO: registrar_prestamo
+    # ==============================================================
+    # Esta es la función principal que se activa al darle clic a "Registrar préstamo".
+    # Recopila la información de las cajas de texto (Código, ISBN, Fechas)
+    # y hace un INSERT en la tabla 'prestamo' de la base de datos PostgreSQL.
     def registrar_prestamo(self):
         tipo = self.obtener_tipo_solicitante()
         codigo = self.input_codigo.text().strip()
@@ -310,6 +359,15 @@ class RegistroPrestamo(QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo registrar el préstamo:\n{e}")
 
 
+# =====================================================================
+# CLASE: DevolverPrestamo (DEVOLUCIÓN Y MULTAS)
+# =====================================================================
+# Esta clase gestiona la devolución de libros. 
+# Funciones principales:
+# 1. Busca el préstamo por ID y muestra los datos.
+# 2. Calcula automáticamente la multa si el libro se entrega tarde ($5 alumnos, $10 maestros).
+# 3. Genera un recibo en PDF si hay multa.
+# 4. Envía un correo electrónico automático avisando de la multa.
 class DevolverPrestamo(QDialog):
     def __init__(self):
         super().__init__()
@@ -357,6 +415,11 @@ class DevolverPrestamo(QDialog):
         layout.addWidget(self.btn_devolver)
         self.setLayout(layout)
 
+    # ==============================================================
+    # MÉTODO: buscar_prestamo
+    # ==============================================================
+    # Consulta la tabla 'prestamo' por el ID ingresado y muestra sus datos.
+    # Si lo encuentra, llama a calcular_multa() para determinar si hay retraso.
     def buscar_prestamo(self):
         try:
             cursor.execute(
@@ -387,6 +450,13 @@ class DevolverPrestamo(QDialog):
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo consultar el préstamo:\n{e}")
 
+    # ==============================================================
+    # MÉTODO: calcular_multa
+    # ==============================================================
+    # Calcula la multa automáticamente comparándo la fecha límite del préstamo
+    # con la fecha de devolución seleccionada. Si hay días de retraso:
+    #  - Alumno: $5 MXN por cada día de retraso.
+    #  - Maestro/Profesor: $10 MXN por cada día de retraso.
     def calcular_multa(self):
         if not self.prestamo_actual:
             self.input_multa.setValue(0)
@@ -408,6 +478,12 @@ class DevolverPrestamo(QDialog):
             
         self.input_multa.setValue(multa)
 
+    # ==============================================================
+    # MÉTODO: devolver_prestamo
+    # ==============================================================
+    # Función activada al dar clic a "Marcar como entregado".
+    # Si hay multa, primero intenta procesarla (generar PDF + enviar correo).
+    # Después actualiza la tabla 'prestamo' cambiando el estatus a 'entregado'.
     def devolver_prestamo(self):
         if not self.prestamo_actual:
             QtWidgets.QMessageBox.warning(self, "Advertencia", "Busca un préstamo primero.")
@@ -453,6 +529,14 @@ class DevolverPrestamo(QDialog):
             conexion.rollback()
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo devolver el préstamo:\n{e}")
 
+    # ==============================================================
+    # MÉTODO: procesar_multa
+    # ==============================================================
+    # Esta función hace 3 cosas:
+    # 1. Busca los datos del libro y del usuario multado en la BD.
+    # 2. Genera un archivo PDF profesional con el recibo de la multa.
+    # 3. Envía el PDF por correo electrónico automáticamente al correo del usuario.
+    # Si el correo falla, le pregunta al usuario si quiere continuar sin envío.
     def procesar_multa(self, monto, correo_remitente, password_correo):
         isbn = self.prestamo_actual[4]
         cursor.execute("SELECT titulo, autores, editorial FROM libros WHERE isbn = %s", (isbn,))
@@ -581,7 +665,7 @@ class DevolverPrestamo(QDialog):
             msg['Subject'] = 'Aviso de Multa - Biblioteca LibraryControl'
             msg['From'] = correo_remitente
             msg['To'] = correo_usuario
-            msg.set_content(f"Hola {nombre_usuario},\n\nAdjuntamos el recibo de la multa generada por la devolución tardía del libro '{libro[0]}'.\n\nSaludos,\nEl equipo de la Biblioteca.\n\nFavor de ser puntual en futuras devoluciones\n\nGracias")
+            msg.set_content(f"Hola {nombre_usuario},\n\nAdjuntamos el recibo de la multa generada por la devolución tardía del libro '{libro[0]}'.\n\nFavor de ser puntual en futuras devoluciones\n\nGracias\n\nSaludos,\nEl equipo de la Biblioteca.")
 
             with open(pdf_path, 'rb') as f:
                 pdf_data = f.read()
@@ -613,6 +697,10 @@ class DevolverPrestamo(QDialog):
                 return False
 
 
+# =====================================================================
+# CLASE: ConsultaPrestamo (BUSCAR UN PRÉSTAMO ESPECÍFICO)
+# =====================================================================
+# Permite buscar el historial de un préstamo específico usando su número de ID (Folio).
 class ConsultaPrestamo(QDialog):
     def __init__(self):
         super().__init__()
@@ -665,6 +753,11 @@ class ConsultaPrestamo(QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", f"Error en la búsqueda:\n{e}")
 
 
+# =====================================================================
+# CLASE: ConsultasPrestamos (VER TODOS LOS PRÉSTAMOS)
+# =====================================================================
+# Muestra una tabla gigante con TODOS los préstamos registrados en la base de datos.
+# Ideal para reportes generales.
 class ConsultasPrestamos(QDialog):
     def __init__(self):
         super().__init__()
@@ -724,7 +817,10 @@ class ConsultasPrestamos(QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los préstamos:\n{e}")
 
 
-# 🔹 FORMULARIO DE REGISTRO DE EMPLEADOS
+# =====================================================================
+# CLASE: RegistroEmpleado (AÑADIR NUEVO EMPLEADO)
+# =====================================================================
+# Muestra un formulario para guardar un empleado nuevo en la tabla 'empleado'.
 class RegistroEmpleado(QDialog):
     def __init__(self):
         super().__init__()
@@ -793,6 +889,11 @@ class RegistroEmpleado(QDialog):
             conexion.rollback() # Revertir en caso de error
             QtWidgets.QMessageBox.warning(self, "Error", f"Hubo un problema al registrar en la BD: {e}")
 
+# =====================================================================
+# CLASE: RegistroAlumnos (CLASE OBSOLETA / NO UTILIZADA)
+# =====================================================================
+# NOTA: Esta clase parece estar en desuso. La aplicación actualmente usa
+# 'RegistroAlumno' (en singular) más abajo.
 class RegistroAlumnos(QDialog):
     def __init__(self):
         super().__init__()
@@ -861,8 +962,10 @@ class RegistroAlumnos(QDialog):
             conexion.rollback() # Revertir en caso de error
             QtWidgets.QMessageBox.warning(self, "Error", f"Hubo un problema al registrar en la BD: {e}")
 
-
-# 🔹 VENTANA DE CONSULTA GENERAL
+# =====================================================================
+# CLASE: ConsultaGeneral (VER TODOS LOS EMPLEADOS)
+# =====================================================================
+# Carga la tabla 'empleado' completa y la muestra en pantalla.
 class ConsultaGeneral(QDialog):
     def __init__(self):
         super().__init__()
@@ -906,8 +1009,10 @@ class ConsultaGeneral(QDialog):
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los datos: {e}")
 
-
-# 🔹 FORMULARIO DE REGISTRO DE ALUMNOS
+# =====================================================================
+# CLASE: RegistroAlumno (AÑADIR NUEVO ALUMNO)
+# =====================================================================
+# Muestra un formulario para guardar un estudiante nuevo en la tabla 'alumnos'.
 class RegistroAlumno(QDialog):
     def __init__(self):
         super().__init__()
@@ -975,8 +1080,10 @@ class RegistroAlumno(QDialog):
             conexion.rollback()
             QtWidgets.QMessageBox.warning(self, "Error", f"Hubo un problema al registrar en la BD: {e}")
 
-
-# 🔹 VENTANA DE CONSULTA GENERAL DE ALUMNOS
+# =====================================================================
+# CLASE: ConsultaGeneralAlumno (VER TODOS LOS ALUMNOS)
+# =====================================================================
+# Carga la tabla 'alumnos' completa y la muestra en una cuadrícula.
 class ConsultaGeneralAlumno(QDialog):
     def __init__(self):
         super().__init__()
@@ -1020,7 +1127,11 @@ class ConsultaGeneralAlumno(QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los datos: {e}")
 
 
-# 🔹 FORMULARIO DE REGISTRO DE PROFESORES
+# =====================================================================
+# CLASE: RegistroProfesor (AÑADIR NUEVO PROFESOR)
+# =====================================================================
+# Formulario para insertar un profesor nuevo en la tabla 'maestros'.
+# Pide: código, nombre, departamento, correo, dirección, teléfono, sexo, fecha de nacimiento.
 class RegistroProfesor(QDialog):
     def __init__(self):
         super().__init__()
@@ -1088,8 +1199,10 @@ class RegistroProfesor(QDialog):
             conexion.rollback()
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo registrar: {e}")
 
-
-# 🔹 VENTANA DE CONSULTA GENERAL DE PROFESORES
+# =====================================================================
+# CLASE: ConsultaProfesores (VER TODOS LOS PROFESORES)
+# =====================================================================
+# Muestra una tabla con todos los registros de la tabla 'maestros'.
 class ConsultaProfesores(QDialog):
     def __init__(self):
         super().__init__()
@@ -1132,8 +1245,12 @@ class ConsultaProfesores(QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los datos: {e}")
 
 
-# 🔹 CLASES GENÉRICAS (Consulta Individual, Editar, Eliminar)
-
+# =====================================================================
+# CLASE: ConsultaIndividual (BUSCAR UN REGISTRO POR CÓDIGO/ISBN)
+# =====================================================================
+# Ventana genérica que sirve para buscar un registro específico.
+# Funciona para empleados, alumnos, maestros y libros porque
+# recibe el nombre de la tabla como parámetro.
 class ConsultaIndividual(QDialog):
     def __init__(self, tabla):
         super().__init__()
@@ -1181,6 +1298,12 @@ class ConsultaIndividual(QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", f"Error en la búsqueda: {e}")
 
 
+# =====================================================================
+# CLASE: EditarEmpleado (MODIFICAR DATOS DE UN EMPLEADO)
+# =====================================================================
+# Ventana con formulario completo para editar TODAS las columnas de un empleado.
+# Primero se busca por código, se rellenan los campos con los datos actuales,
+# y después se pueden modificar y guardar. El código (Primary Key) queda bloqueado.
 class EditarEmpleado(QDialog):
     def __init__(self):
         super().__init__()
@@ -1268,6 +1391,12 @@ class EditarEmpleado(QDialog):
             conexion.rollback()
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo actualizar: {e}")
 
+# =====================================================================
+# CLASE: EditarAlumno (MODIFICAR DATOS DE UN ALUMNO)
+# =====================================================================
+# Ventana con formulario completo para editar TODAS las columnas de un alumno.
+# Busca por código, autocompleta los campos actuales y permite modificarlos.
+# El código (Primary Key) queda bloqueado.
 class EditarAlumno(QDialog):
     def __init__(self):
         super().__init__()
@@ -1358,6 +1487,12 @@ class EditarAlumno(QDialog):
             conexion.rollback()
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo actualizar: {e}")
 
+# =====================================================================
+# CLASE: EditarProfesor (MODIFICAR DATOS DE UN PROFESOR)
+# =====================================================================
+# Ventana con formulario completo para editar TODAS las columnas de un maestro.
+# Busca por código, autocompleta los campos actuales y permite modificarlos.
+# El código (Primary Key) queda bloqueado.
 class EditarProfesor(QDialog):
     def __init__(self):
         super().__init__()
@@ -1448,6 +1583,12 @@ class EditarProfesor(QDialog):
             conexion.rollback()
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo actualizar: {e}")
 
+# =====================================================================
+# CLASE: EditarLibro (MODIFICAR DATOS DE UN LIBRO)
+# =====================================================================
+# Ventana con formulario completo para editar TODAS las columnas de un libro.
+# Busca por ISBN, autocompleta los campos actuales y permite modificarlos.
+# El ISBN (Primary Key) queda bloqueado.
 class EditarLibro(QDialog):
     def __init__(self):
         super().__init__()
@@ -1535,6 +1676,12 @@ class EditarLibro(QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo actualizar: {e}")
 
 
+# =====================================================================
+# CLASE: EliminarRegistro (BORRAR UN REGISTRO)
+# =====================================================================
+# Ventana genérica que permite eliminar un registro de cualquier tabla
+# (empleado, alumnos, maestros o libros) usando su código o ISBN.
+# Pide confirmación antes de borrar para evitar errores.
 class EliminarRegistro(QDialog):
     def __init__(self, tabla):
         super().__init__()
@@ -1577,6 +1724,11 @@ class EliminarRegistro(QDialog):
             except Exception as e:
                 conexion.rollback()
                 QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo eliminar: {e}")
+# =====================================================================
+# CLASE: RegistroLibro (AÑADIR NUEVO LIBRO)
+# =====================================================================
+# Formulario para insertar un libro nuevo en la tabla 'libros'.
+# Pide: ISBN, título, autores, editorial, año de publicación, número de ejemplar.
 class RegistroLibro(QDialog):
     def __init__(self):
         super().__init__()
@@ -1637,6 +1789,10 @@ class RegistroLibro(QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo registrar el libro: {e}")
 
 
+# =====================================================================
+# CLASE: ConsultaGeneralLibro (VER TODOS LOS LIBROS)
+# =====================================================================
+# Muestra una tabla con todos los libros registrados en la tabla 'libros'.
 class ConsultaGeneralLibro(QDialog):
     def __init__(self):
         super().__init__()
@@ -1679,8 +1835,12 @@ class ConsultaGeneralLibro(QDialog):
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los datos: {e}")
 
-
-#VENTANA DE LOGEO
+# =====================================================================
+# CLASE: MiVentana (PANTALLA DE INICIO DE SESIÓN / LOGIN)
+# =====================================================================
+# Es la primera ventana que aparece al abrir el programa.
+# Pide usuario y contraseña. Si los datos son correctos (tabla 'usuario'),
+# cierra esta ventana y abre Main (la ventana principal).
 class MiVentana(QDialog):
     def __init__(self):
         super().__init__()
@@ -1688,7 +1848,7 @@ class MiVentana(QDialog):
         base_path = os.path.dirname(__file__)
         uic.loadUi(os.path.join(base_path, '6.ui'), self)
         
-        # Reducir el tamaño de fuente conservando el tipo de letra original para que no se encimen
+        # Aplicamos estilos CSS a los títulos del Login para que usen la fuente "Bodoni MT" en blanco
         self.titleLabel.setStyleSheet('color: white; background-color: none; font: 25 24pt "Bodoni MT Poster Compressed";')
         self.loginTitle.setStyleSheet('color: white; background-color: none; font: 25 24pt "Bodoni MT Poster Compressed";')
         
@@ -1700,9 +1860,15 @@ class MiVentana(QDialog):
 
         self.btn_login.clicked.connect(self.login)
         
-        # Enmascarar la contraseña
+        # Enmascara los caracteres de la contraseña para que se muestren como puntitos "•••"
         self.input_pass.setEchoMode(QtWidgets.QLineEdit.Password)
 
+    # ==============================================================
+    # MÉTODO: login
+    # ==============================================================
+    # Se ejecuta al dar clic en el botón de Login.
+    # Toma el texto del usuario y contraseña, los busca en la tabla 'usuario' de la BD.
+    # Si coinciden, abre la ventana principal (Main). Si no, muestra error.
     def login(self):
         try:
             usuario = self.input_user.text().strip()
@@ -1729,16 +1895,25 @@ class MiVentana(QDialog):
             QtWidgets.QMessageBox.critical(self, "Error", f"No se pudo iniciar sesión:\n{e}")
 
 
-#EJECUCIÓN
+# =====================================================================
+# SECCIÓN: EJECUCIÓN DEL PROGRAMA (PUNTO DE ENTRADA)
+# =====================================================================
+# Aquí es donde Python empieza a ejecutar la aplicación.
+# Crea la aplicación de Qt, muestra la ventana de Login (MiVentana)
+# y queda esperando a que el usuario interactúe.
 app = QApplication(sys.argv)
+
+# Si todas las ventanas se cierran, la aplicación también se cierra
 app.setQuitOnLastWindowClosed(True)
 
+# Creamos la ventana de Login y la mostramos en pantalla
 ventana = MiVentana()
 ventanas_abiertas.append(ventana)
 ventana.show()
 
+# app.exec() mantiene la aplicación corriendo hasta que el usuario cierre todas las ventanas
 app.exec()
 
-#Cerrar conexión al salir
+# Cuando el programa termina, cerramos la conexión a la base de datos para no dejar conexiones abiertas
 cursor.close()
 conexion.close()
