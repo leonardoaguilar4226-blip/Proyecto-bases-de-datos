@@ -13,7 +13,7 @@ try:
         host="localhost",
         port=5432,
         user="postgres",
-        password="12345"
+        password="1234"
     )
     cursor = conexion.cursor()
 except Exception as e:
@@ -1141,7 +1141,7 @@ class MiVentana(QDialog):
         usuario = self.input_user.text()
         password = self.input_pass.text()
 
-        consulta = 'SELECT * FROM "Usuario" WHERE nombre_del_usuario = %s AND contrasena = %s'
+        consulta = 'SELECT * FROM usuario WHERE nombre_del_usuario = %s AND contrasena = %s'
         cursor.execute(consulta, (usuario, password))
 
         resultado = cursor.fetchone()

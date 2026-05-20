@@ -4,6 +4,13 @@ from PyQt5.QtWidgets import QApplication, QDialog, QMainWindow
 from PyQt5.QtGui import QPixmap, QIcon, QCursor
 import sys
 import os
+import smtplib
+from email.message import EmailMessage
+from fpdf import FPDF
+import datetime
+
+
+ventanas_abiertas = []
 
 # 🔹 Conexión a la BD
 try:
@@ -29,11 +36,19 @@ class Main(QMainWindow):
         super().__init__()
         import os
         base_path = os.path.dirname(__file__)
-        uic.loadUi(os.path.join(base_path, 'AV1', 'main.ui'), self)
-        self.imagen.setPixmap(QPixmap(os.path.join(base_path, 'online-library.png')))
+        uic.loadUi(os.path.join(base_path, 'main.ui'), self)
+        
+        img_path = os.path.join(base_path, 'online-library.png')
+        if not os.path.exists(img_path):
+            img_path = os.path.join(os.path.dirname(base_path), 'online-library.png')
+        self.imagen.setPixmap(QPixmap(img_path))
         self.imagen.setScaledContents(True)
-        self.setWindowTitle("LibraryControl")
-        self.setWindowIcon(QIcon(os.path.join(base_path, 'icono.ico')))
+        self.setWindowTitle("BIBLIOTECA - LibraryControl")
+        
+        icon_path = os.path.join(base_path, 'icono.ico')
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(os.path.dirname(base_path), 'icono.ico')
+        self.setWindowIcon(QIcon(icon_path))
 
 
         # 🔥 Mostrar usuario en la interfaz (asegúrate de tener un QLabel llamado label_user)
@@ -43,219 +58,45 @@ class Main(QMainWindow):
         except:
             pass
 
-        # 🔹 Crear el botón "EMPLEADOS" debajo del banner
-        self.btn_empleados = QtWidgets.QPushButton("⚙️ MENÚ EMPLEADOS", self.centralwidget)
-        self.btn_empleados.setGeometry(20, 100, 200, 40)
-        self.btn_empleados.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
-        self.btn_empleados.setStyleSheet("""
-            QPushButton {
-                background-color: #6829DB;
-                color: white;
-                font: bold 10pt "Berlin Sans FB Demi";
-                border-radius: 8px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #AB88EB;
-            }
-            QPushButton::menu-indicator {
-                subcontrol-origin: padding;
-                subcontrol-position: center right;
-                right: 10px;
-            }
-        """)
+        # Conectar los botones que ya vienen diseñados en main.ui.
+        self.btnEmp01Registrar.clicked.connect(self.abrir_registro)
+        self.btnEmp02ConsultaInd.clicked.connect(self.abrir_consulta_individual_emp)
+        self.btnEmp03ConsultaGen.clicked.connect(self.abrir_consulta_gral)
+        self.btnEmp04Cambiar.clicked.connect(self.abrir_editar_emp)
+        self.btnEmp05Eliminar.clicked.connect(self.abrir_eliminar_emp)
 
-        # Acciones para el menú del botón
-        accion_registrar = QtWidgets.QAction("📝 Registrar", self)
-        accion_registrar.triggered.connect(self.abrir_registro)
+        self.btnAluRegistrar.clicked.connect(self.abrir_registro_alumno)
+        self.btnAluConsultaInd.clicked.connect(self.abrir_consulta_individual_al)
+        self.btnAluConsultaGen.clicked.connect(self.abrir_consulta_gral_alumno)
+        self.btnAluCambiar.clicked.connect(self.abrir_editar_al)
+        self.btnAluEliminar.clicked.connect(self.abrir_eliminar_al)
 
-        accion_consulta_gral = QtWidgets.QAction("📋 Consulta General", self)
-        accion_consulta_gral.triggered.connect(self.abrir_consulta_gral)
-        
-        # Crear el menú que se despliega al presionar el botón
-        menu_desplegable = QtWidgets.QMenu(self)
-        menu_desplegable.setStyleSheet("""
-            QMenu {
-                background-color: white;
-                border: 1px solid #6829DB;
-            }
-            QMenu::item {
-                padding: 8px 25px;
-                font: 10pt "Arial";
-            }
-            QMenu::item:selected {
-                background-color: #F5F6FA;
-                color: #6829DB;
-            }
-        """)
-        menu_desplegable.addAction(accion_registrar)
-        menu_desplegable.addAction("🔍 Consulta Individual")
-        menu_desplegable.addAction(accion_consulta_gral)
-        menu_desplegable.addAction("✏️ Cambiar")
-        menu_desplegable.addAction("❌ Eliminar")
+        self.btnProfRegistrar.clicked.connect(self.abrir_registro_profesor)
+        self.btnProfConsultaInd.clicked.connect(self.abrir_consulta_individual_prof)
+        self.btnProfConsultaGen.clicked.connect(self.abrir_consulta_profesores)
+        self.btnProfCambiar.clicked.connect(self.abrir_editar_prof)
+        self.btnProfEliminar.clicked.connect(self.abrir_eliminar_prof)
 
-        # Asignar el menú al botón
-        self.btn_empleados.setMenu(menu_desplegable)
+        self.btnPrestRegistrar.clicked.connect(self.abrir_registro_prestamo)
+        self.btnPrestDevolver.clicked.connect(self.abrir_devolver_prestamo)
+        self.btnPrestConsulta.clicked.connect(self.abrir_consulta_prestamo)
+        self.btnPrestConsultas.clicked.connect(self.abrir_consultas_prestamos)
 
-        # Conectar acciones de Empleados
-        accion_cons_ind_emp = menu_desplegable.actions()[1]
-        accion_cons_ind_emp.triggered.connect(self.abrir_consulta_individual_emp)
-        
-        accion_cambiar_emp = menu_desplegable.actions()[3]
-        accion_cambiar_emp.triggered.connect(self.abrir_editar_emp)
-        
-        accion_eliminar_emp = menu_desplegable.actions()[4]
-        accion_eliminar_emp.triggered.connect(self.abrir_eliminar_emp)
+        # Los botones de libros estan en el diseno
+        self.btnLibRegistrar.clicked.connect(self.abrir_registro_libro)
+        self.btnLibConsultaInd.clicked.connect(self.abrir_consulta_individual_lib)
+        self.btnLibConsultaGen.clicked.connect(self.abrir_consulta_general_lib)
+        self.btnLibCambiar.clicked.connect(self.abrir_editar_lib)
+        self.btnLibEliminar.clicked.connect(self.abrir_eliminar_lib)
 
-        # 🔹 Crear el botón "ALUMNOS" al lado del de empleados
-        self.btn_alumnos = QtWidgets.QPushButton("🎓 MENÚ ALUMNOS", self.centralwidget)
-        self.btn_alumnos.setGeometry(230, 100, 200, 40)
-        self.btn_alumnos.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
-        self.btn_alumnos.setStyleSheet("""
-            QPushButton {
-                background-color: #2980B9;
-                color: white;
-                font: bold 10pt "Berlin Sans FB Demi";
-                border-radius: 8px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #3498DB;
-            }
-            QPushButton::menu-indicator {
-                subcontrol-origin: padding;
-                subcontrol-position: center right;
-                right: 10px;
-            }
-        """)
 
-        # Acciones para el menú de Alumnos
-        accion_reg_alumno = QtWidgets.QAction("📝 Registrar", self)
-        accion_reg_alumno.triggered.connect(self.abrir_registro_alumno)
+        self.btnCerrarSesion.clicked.connect(self.cerrar_sesion)
 
-        accion_cons_ind_alumno = QtWidgets.QAction("🔍 Consulta Individual", self)
-        accion_cons_ind_alumno.triggered.connect(self.abrir_consulta_individual_al)
-
-        accion_cons_gral_alumno = QtWidgets.QAction("📋 Consulta General", self)
-        accion_cons_gral_alumno.triggered.connect(self.abrir_consulta_gral_alumno)
-
-        accion_cambiar_alumno = QtWidgets.QAction("✏️ Cambiar", self)
-        accion_cambiar_alumno.triggered.connect(self.abrir_editar_al)
-
-        accion_eliminar_alumno = QtWidgets.QAction("❌ Eliminar", self)
-        accion_eliminar_alumno.triggered.connect(self.abrir_eliminar_al)
-
-        # Crear el menú que se despliega al presionar el botón de Alumnos
-        menu_alumnos = QtWidgets.QMenu(self)
-        menu_alumnos.setStyleSheet("""
-            QMenu {
-                background-color: white;
-                border: 1px solid #2980B9;
-            }
-            QMenu::item {
-                padding: 8px 25px;
-                font: 10pt "Arial";
-            }
-            QMenu::item:selected {
-                background-color: #F5F6FA;
-                color: #2980B9;
-            }
-        """)
-        menu_alumnos.addAction(accion_reg_alumno)
-        menu_alumnos.addAction(accion_cons_ind_alumno)
-        menu_alumnos.addAction(accion_cons_gral_alumno)
-        menu_alumnos.addAction(accion_cambiar_alumno)
-        menu_alumnos.addAction(accion_eliminar_alumno)
-
-        self.btn_alumnos.setMenu(menu_alumnos)
-
-        # 🔹 Crear el botón "PROFESORES" al lado del de alumnos
-        self.btn_profesores = QtWidgets.QPushButton("👨‍🏫 MENÚ PROFESORES", self.centralwidget)
-        self.btn_profesores.setGeometry(440, 100, 200, 40)
-        self.btn_profesores.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
-        self.btn_profesores.setStyleSheet("""
-            QPushButton {
-                background-color: #27AE60;
-                color: white;
-                font: bold 10pt "Berlin Sans FB Demi";
-                border-radius: 8px;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #2ECC71;
-            }
-            QPushButton::menu-indicator {
-                subcontrol-origin: padding;
-                subcontrol-position: center right;
-                right: 10px;
-            }
-        """)
-
-        # Acciones para Profesores
-        accion_reg_prof = QtWidgets.QAction("📝 Registrar", self)
-        accion_reg_prof.triggered.connect(self.abrir_registro_profesor)
-
-        accion_cons_ind_prof = QtWidgets.QAction("🔍 Consulta Individual", self)
-        accion_cons_ind_prof.triggered.connect(self.abrir_consulta_individual_prof)
-
-        accion_cons_gral_prof = QtWidgets.QAction("📋 Consulta General", self)
-        accion_cons_gral_prof.triggered.connect(self.abrir_consulta_profesores)
-
-        accion_cambiar_prof = QtWidgets.QAction("✏️ Cambiar", self)
-        accion_cambiar_prof.triggered.connect(self.abrir_editar_prof)
-
-        accion_eliminar_prof = QtWidgets.QAction("❌ Eliminar", self)
-        accion_eliminar_prof.triggered.connect(self.abrir_eliminar_prof)
-
-        menu_profesores = QtWidgets.QMenu(self)
-        menu_profesores.setStyleSheet("""
-            QMenu {
-                background-color: white;
-                border: 1px solid #27AE60;
-            }
-            QMenu::item {
-                padding: 8px 25px;
-                font: 10pt "Arial";
-            }
-            QMenu::item:selected {
-                background-color: #F5F6FA;
-                color: #27AE60;
-            }
-        """)
-        menu_profesores.addAction(accion_reg_prof)
-        menu_profesores.addAction(accion_cons_ind_prof)
-        menu_profesores.addAction(accion_cons_gral_prof)
-        menu_profesores.addAction(accion_cambiar_prof)
-        menu_profesores.addAction(accion_eliminar_prof)
-
-        self.btn_profesores.setMenu(menu_profesores)
-
-        # 🔹 Control de Acceso: Solo el 'admin' ve estos menús
+        # 🔹 Control de Acceso: Solo el 'admin' ve estos menus
         if usuario.lower() != "admin":
-            self.btn_empleados.hide()
-            self.btn_alumnos.hide()
-            self.btn_profesores.hide()
-            # El menú de libros se implementará luego y será visible para todos
-
-        # 🔹 Botón de Cerrar Sesión en el Banner (al lado del usuario)
-        self.btn_logout = QtWidgets.QPushButton("🚪 CERRAR SESIÓN", self.barra)
-        self.btn_logout.setGeometry(810, 20, 140, 40)
-        self.btn_logout.setCursor(QCursor(QtCore.Qt.PointingHandCursor))
-        self.btn_logout.setStyleSheet("""
-            QPushButton {
-                background-color: rgba(23, 0, 35, 20);
-                color: rgb(23, 0, 35);
-                font: bold 8pt "Arial";
-                border: 1px solid rgb(23, 0, 35);
-                border-radius: 10px;
-            }
-            QPushButton:hover {
-                background-color: #6829DB;
-                color: white;
-                border: none;
-            }
-        """)
-        self.btn_logout.clicked.connect(self.cerrar_sesion)
+            self.employeeColumn.hide()
+            self.studentColumn.hide()
+            self.professorColumn.hide()
 
 
 
@@ -288,7 +129,7 @@ class Main(QMainWindow):
         self.ventana.exec_()
 
     def abrir_editar_emp(self):
-        self.ventana = EditarRegistro("empleado")
+        self.ventana = EditarEmpleado()
         self.ventana.exec_()
 
     def abrir_eliminar_emp(self):
@@ -300,7 +141,7 @@ class Main(QMainWindow):
         self.ventana.exec_()
 
     def abrir_editar_al(self):
-        self.ventana = EditarRegistro("alumnos")
+        self.ventana = EditarAlumno()
         self.ventana.exec_()
 
     def abrir_eliminar_al(self):
@@ -312,17 +153,575 @@ class Main(QMainWindow):
         self.ventana.exec_()
 
     def abrir_editar_prof(self):
-        self.ventana = EditarRegistro("maestros")
+        self.ventana = EditarProfesor()
         self.ventana.exec_()
 
     def abrir_eliminar_prof(self):
         self.ventana = EliminarRegistro("maestros")
         self.ventana.exec_()
 
+    def abrir_registro_prestamo(self):
+        self.ventana = RegistroPrestamo()
+        self.ventana.exec_()
+
+    def abrir_devolver_prestamo(self):
+        self.ventana = DevolverPrestamo()
+        self.ventana.exec_()
+
+    def abrir_consulta_prestamo(self):
+        self.ventana = ConsultaPrestamo()
+        self.ventana.exec_()
+
+    def abrir_consultas_prestamos(self):
+        self.ventana = ConsultasPrestamos()
+        self.ventana.exec_()
+
+    def abrir_registro_libro(self):
+        self.ventana = RegistroLibro()
+        self.ventana.exec_()
+
+    def abrir_consulta_individual_lib(self):
+        self.ventana = ConsultaIndividual("libros")
+        self.ventana.exec_()
+
+    def abrir_consulta_general_lib(self):
+        self.ventana = ConsultaGeneralLibro()
+        self.ventana.exec_()
+
+    def abrir_editar_lib(self):
+        self.ventana = EditarLibro()
+        self.ventana.exec_()
+
+    def abrir_eliminar_lib(self):
+        self.ventana = EliminarRegistro("libros")
+        self.ventana.exec_()
+
     def cerrar_sesion(self):
         self.login = MiVentana()
         self.login.show()
         self.close()
+
+
+class RegistroPrestamo(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Registrar préstamo")
+        self.resize(470, 420)
+
+        layout = QtWidgets.QVBoxLayout()
+        form_layout = QtWidgets.QFormLayout()
+
+        self.combo_solicitante = QtWidgets.QComboBox()
+        self.combo_solicitante.addItem("Alumno", "A")
+        self.combo_solicitante.addItem("Profesor", "P")
+
+        self.input_codigo = QtWidgets.QLineEdit()
+        self.input_codigo.setPlaceholderText("Código del alumno o profesor")
+
+        self.input_isbn = QtWidgets.QLineEdit()
+        self.input_num_ejemplar = QtWidgets.QSpinBox()
+        self.input_num_ejemplar.setMinimum(1)
+        self.input_num_ejemplar.setMaximum(999999)
+
+        self.fecha_prestamo = QtWidgets.QDateEdit()
+        self.fecha_prestamo.setCalendarPopup(True)
+        self.fecha_prestamo.setDate(QtCore.QDate.currentDate())
+
+        self.fecha_limite = QtWidgets.QDateEdit()
+        self.fecha_limite.setCalendarPopup(True)
+        self.fecha_limite.setDate(QtCore.QDate.currentDate().addDays(7))
+
+        form_layout.addRow("Solicitante:", self.combo_solicitante)
+        form_layout.addRow("Código:", self.input_codigo)
+        form_layout.addRow("ISBN:", self.input_isbn)
+        form_layout.addRow("Número de ejemplar:", self.input_num_ejemplar)
+        form_layout.addRow("Fecha de préstamo:", self.fecha_prestamo)
+        form_layout.addRow("Fecha límite:", self.fecha_limite)
+
+        self.btn_registrar = QtWidgets.QPushButton("Registrar préstamo")
+        self.btn_registrar.clicked.connect(self.registrar_prestamo)
+
+        layout.addLayout(form_layout)
+        layout.addWidget(self.btn_registrar)
+        self.setLayout(layout)
+
+    def obtener_tipo_solicitante(self):
+        tipo = self.combo_solicitante.currentData()
+        try:
+            cursor.execute(
+                """
+                SELECT character_maximum_length
+                FROM information_schema.columns
+                WHERE table_name = 'prestamo'
+                  AND column_name = 'tipo_solicitante'
+                """
+            )
+            resultado = cursor.fetchone()
+            longitud = resultado[0] if resultado else 1
+        except Exception:
+            longitud = 1
+
+        if longitud == 1:
+            return tipo
+        return "Alumno" if tipo == "A" else "Maestro"
+
+    def registrar_prestamo(self):
+        tipo = self.obtener_tipo_solicitante()
+        codigo = self.input_codigo.text().strip()
+        isbn = self.input_isbn.text().strip()
+
+        if not codigo or not isbn:
+            QtWidgets.QMessageBox.warning(self, "Datos incompletos", "Captura el código del solicitante y el ISBN.")
+            return
+
+        codigo_alumno = codigo if tipo == "A" else None
+
+        try:
+            codigo_profesor = int(codigo) if tipo == "P" else None
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Código inválido", "El código del profesor debe ser numérico.")
+            return
+
+        consulta_sql = '''
+            INSERT INTO prestamo (
+                tipo_solicitante, codigo_alumno, codigo_profesor, isbn, num_ejemplar,
+                fecha_prestamo, fecha_limite, estatus, multa
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'prestado', 0.00)
+        '''
+
+        datos = (
+            tipo,
+            codigo_alumno,
+            codigo_profesor,
+            isbn,
+            self.input_num_ejemplar.value(),
+            self.fecha_prestamo.date().toPyDate(),
+            self.fecha_limite.date().toPyDate()
+        )
+
+        try:
+            cursor.execute(consulta_sql, datos)
+            conexion.commit()
+            QtWidgets.QMessageBox.information(self, "Éxito", "Préstamo registrado correctamente.")
+            self.close()
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo registrar el préstamo:\n{e}")
+
+
+class DevolverPrestamo(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Devolver préstamo")
+        self.resize(430, 320)
+
+        layout = QtWidgets.QVBoxLayout()
+        form_layout = QtWidgets.QFormLayout()
+
+        self.input_id = QtWidgets.QSpinBox()
+        self.input_id.setMinimum(1)
+        self.input_id.setMaximum(999999)
+
+        self.fecha_devolucion = QtWidgets.QDateEdit()
+        self.fecha_devolucion.setCalendarPopup(True)
+        self.fecha_devolucion.setDate(QtCore.QDate.currentDate())
+
+        self.input_multa = QtWidgets.QDoubleSpinBox()
+        self.input_multa.setMinimum(0)
+        self.input_multa.setMaximum(999999.99)
+        self.input_multa.setDecimals(2)
+        self.input_multa.setPrefix("$ ")
+
+        self.input_multa.setReadOnly(True)
+
+        form_layout.addRow("ID préstamo:", self.input_id)
+        form_layout.addRow("Fecha devolución:", self.fecha_devolucion)
+        form_layout.addRow("Multa:", self.input_multa)
+
+        self.info = QtWidgets.QTextEdit()
+        self.info.setReadOnly(True)
+
+        self.btn_buscar = QtWidgets.QPushButton("Buscar préstamo")
+        self.btn_buscar.clicked.connect(self.buscar_prestamo)
+
+        self.btn_devolver = QtWidgets.QPushButton("Marcar como entregado")
+        self.btn_devolver.clicked.connect(self.devolver_prestamo)
+
+        self.fecha_devolucion.dateChanged.connect(self.calcular_multa)
+        self.prestamo_actual = None
+
+        layout.addLayout(form_layout)
+        layout.addWidget(self.btn_buscar)
+        layout.addWidget(self.info)
+        layout.addWidget(self.btn_devolver)
+        self.setLayout(layout)
+
+    def buscar_prestamo(self):
+        try:
+            cursor.execute(
+                """
+                SELECT id_prestamo, tipo_solicitante, codigo_alumno, codigo_profesor,
+                       isbn, num_ejemplar, fecha_prestamo, fecha_limite, estatus, multa
+                FROM prestamo
+                WHERE id_prestamo = %s
+                """,
+                (self.input_id.value(),)
+            )
+            fila = cursor.fetchone()
+
+            if not fila:
+                self.info.setText("No se encontró ese préstamo.")
+                self.prestamo_actual = None
+                self.input_multa.setValue(0)
+                return
+
+            self.prestamo_actual = fila
+            self.calcular_multa()
+
+            etiquetas = [
+                "ID", "Tipo", "Código alumno", "Código profesor", "ISBN",
+                "Ejemplar", "Fecha préstamo", "Fecha límite", "Estatus", "Multa"
+            ]
+            self.info.setHtml("<br>".join(f"<b>{etiqueta}:</b> {valor}" for etiqueta, valor in zip(etiquetas, fila)))
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo consultar el préstamo:\n{e}")
+
+    def calcular_multa(self):
+        if not self.prestamo_actual:
+            self.input_multa.setValue(0)
+            return
+            
+        fecha_limite = self.prestamo_actual[7]
+        tipo = self.prestamo_actual[1]
+        
+        fecha_dev = self.fecha_devolucion.date().toPyDate()
+        dias_retraso = (fecha_dev - fecha_limite).days
+        
+        if dias_retraso > 0:
+            if tipo == "Alumno" or tipo == "A":
+                multa = dias_retraso * 5
+            else:
+                multa = dias_retraso * 10
+        else:
+            multa = 0
+            
+        self.input_multa.setValue(multa)
+
+    def devolver_prestamo(self):
+        if not self.prestamo_actual:
+            QtWidgets.QMessageBox.warning(self, "Advertencia", "Busca un préstamo primero.")
+            return
+
+        multa_calculada = self.input_multa.value()
+        correo_remitente = "leonardo.aguilar4226@alumnos.udg.mx"
+        password_correo = "bkoz omvr mjnp iuqu"
+        
+        if multa_calculada > 0:
+            # Intentar procesar y enviar el correo primero
+            email_enviado = self.procesar_multa(multa_calculada, correo_remitente, password_correo)
+            if not email_enviado:
+                # Si falló el envío y el usuario eligió NO continuar, salimos sin actualizar la BD
+                return
+
+        try:
+            cursor.execute(
+                """
+                UPDATE prestamo
+                SET fecha_devolucion = %s,
+                    estatus = 'entregado',
+                    multa = %s
+                WHERE id_prestamo = %s
+                """,
+                (
+                    self.fecha_devolucion.date().toPyDate(),
+                    multa_calculada,
+                    self.input_id.value()
+                )
+            )
+            conexion.commit()
+
+            if cursor.rowcount > 0:
+                if multa_calculada == 0:
+                    QtWidgets.QMessageBox.information(self, "Éxito", "Préstamo marcado como entregado (Sin multa).")
+                else:
+                    QtWidgets.QMessageBox.information(self, "Éxito", "Préstamo marcado como entregado en la base de datos.")
+                self.close()
+            else:
+                QtWidgets.QMessageBox.warning(self, "Sin cambios", "No se encontró el préstamo indicado.")
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo devolver el préstamo:\n{e}")
+
+    def procesar_multa(self, monto, correo_remitente, password_correo):
+        isbn = self.prestamo_actual[4]
+        cursor.execute("SELECT titulo, autores, editorial FROM libros WHERE isbn = %s", (isbn,))
+        libro = cursor.fetchone()
+        if not libro:
+            libro = ("Desconocido", "Desconocido", "Desconocido")
+            
+        tipo = self.prestamo_actual[1]
+        if tipo == "Alumno" or tipo == "A":
+            cod = self.prestamo_actual[2]
+            cursor.execute("SELECT nombre, correo FROM alumnos WHERE codigo = %s", (cod,))
+        else:
+            cod = self.prestamo_actual[3]
+            cursor.execute("SELECT nombre, correo FROM maestros WHERE codigo = %s", (cod,))
+            
+        usuario = cursor.fetchone()
+        if not usuario:
+            QtWidgets.QMessageBox.warning(self, "Error", "No se encontraron los datos del usuario en la base de datos.")
+            return False
+            
+        nombre_usuario = usuario[0]
+        correo_usuario = usuario[1]
+        fecha_limite = self.prestamo_actual[7]
+        fecha_dev = self.fecha_devolucion.date().toPyDate()
+        dias_retraso = (fecha_dev - fecha_limite).days
+        
+        pdf_path = f"multa_{self.input_id.value()}.pdf"
+        try:
+            pdf = FPDF()
+            pdf.add_page()
+            
+            # Header
+            pdf.set_fill_color(240, 240, 240)
+            pdf.rect(0, 0, 210, 40, 'F')
+            pdf.set_font("Arial", 'B', 20)
+            pdf.set_text_color(40, 40, 40)
+            pdf.cell(0, 20, text="LIBRARY CONTROL", ln=True, align='C')
+            pdf.set_font("Arial", 'B', 14)
+            pdf.set_text_color(220, 53, 69)
+            pdf.cell(0, 10, text="RECIBO DE MULTA POR RETRASO", ln=True, align='C')
+            pdf.ln(15)
+            
+            # User details
+            pdf.set_text_color(0, 0, 0)
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(40, 10, text="Usuario:", border=0)
+            pdf.set_font("Arial", '', 12)
+            pdf.cell(0, 10, text=str(nombre_usuario), ln=True)
+            
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(40, 10, text="Correo:", border=0)
+            pdf.set_font("Arial", '', 12)
+            pdf.cell(0, 10, text=str(correo_usuario), ln=True)
+            
+            pdf.set_font("Arial", 'B', 12)
+            pdf.cell(40, 10, text="Motivo:", border=0)
+            pdf.set_font("Arial", '', 12)
+            pdf.cell(0, 10, text="Devolución de libro fuera de la fecha límite", ln=True)
+            pdf.ln(5)
+            
+            # Book details
+            pdf.set_font("Arial", 'B', 12)
+            pdf.set_fill_color(52, 152, 219)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(0, 10, text="  DETALLES DEL LIBRO", ln=True, fill=True)
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(2)
+            
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(30, 8, text="Título:")
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(0, 8, text=str(libro[0]), ln=True)
+            
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(30, 8, text="Autor(es):")
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(0, 8, text=str(libro[1]), ln=True)
+            
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(30, 8, text="Editorial:")
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(0, 8, text=str(libro[2]), ln=True)
+            
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(30, 8, text="ISBN:")
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(0, 8, text=str(isbn), ln=True)
+            pdf.ln(5)
+            
+            # Delay details
+            pdf.set_font("Arial", 'B', 12)
+            pdf.set_fill_color(243, 156, 18)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(0, 10, text="  DETALLES DEL RETRASO", ln=True, fill=True)
+            pdf.set_text_color(0, 0, 0)
+            pdf.ln(2)
+            
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(40, 8, text="Fecha Límite:")
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(0, 8, text=str(fecha_limite), ln=True)
+            
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(40, 8, text="Fecha Entrega:")
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(0, 8, text=str(fecha_dev), ln=True)
+            
+            pdf.set_font("Arial", 'B', 11)
+            pdf.cell(40, 8, text="Días Retraso:")
+            pdf.set_font("Arial", '', 11)
+            pdf.cell(0, 8, text=str(dias_retraso), ln=True)
+            pdf.ln(10)
+            
+            # Total
+            pdf.set_font("Arial", 'B', 16)
+            pdf.set_text_color(220, 53, 69)
+            pdf.cell(0, 15, text=f"TOTAL A PAGAR: ${monto} MXN", ln=True, align='C', border=1)
+            
+            pdf.output(pdf_path)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error PDF", f"Error al generar el PDF: {e}")
+            return False
+
+        try:
+            msg = EmailMessage()
+            msg['Subject'] = 'Aviso de Multa - Biblioteca LibraryControl'
+            msg['From'] = correo_remitente
+            msg['To'] = correo_usuario
+            msg.set_content(f"Hola {nombre_usuario},\n\nAdjuntamos el recibo de la multa generada por la devolución tardía del libro '{libro[0]}'.\n\nSaludos,\nEl equipo de la Biblioteca.\n\nFavor de ser puntual en futuras devoluciones\n\nGracias")
+
+            with open(pdf_path, 'rb') as f:
+                pdf_data = f.read()
+                
+            msg.add_attachment(pdf_data, maintype='application', subtype='pdf', filename=f"Multa_{isbn}.pdf")
+
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
+                smtp.login(correo_remitente, password_correo)
+                smtp.send_message(msg)
+                
+            QtWidgets.QMessageBox.information(self, "Éxito", f"Correo enviado. Se envió el recibo de multa por ${monto} al correo: {correo_usuario}")
+            if os.path.exists(pdf_path):
+                os.remove(pdf_path)
+            return True
+        except Exception as e:
+            if os.path.exists(pdf_path):
+                os.remove(pdf_path)
+                
+            respuesta = QtWidgets.QMessageBox.question(
+                self, 
+                "Aviso de Correo", 
+                f"No se pudo enviar el correo (Detalle: {e}).\n\n¿Deseas registrar la devolución del libro en la base de datos de todos modos?",
+                QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
+            )
+            
+            if respuesta == QtWidgets.QMessageBox.Yes:
+                return True
+            else:
+                return False
+
+
+class ConsultaPrestamo(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Consulta de préstamo")
+        self.resize(460, 330)
+
+        layout = QtWidgets.QVBoxLayout()
+
+        self.input_id = QtWidgets.QSpinBox()
+        self.input_id.setMinimum(1)
+        self.input_id.setMaximum(999999)
+
+        self.btn_buscar = QtWidgets.QPushButton("Buscar")
+        self.btn_buscar.clicked.connect(self.buscar)
+
+        self.resultado = QtWidgets.QTextEdit()
+        self.resultado.setReadOnly(True)
+
+        layout.addWidget(QtWidgets.QLabel("ID del préstamo:"))
+        layout.addWidget(self.input_id)
+        layout.addWidget(self.btn_buscar)
+        layout.addWidget(self.resultado)
+        self.setLayout(layout)
+
+    def buscar(self):
+        try:
+            cursor.execute(
+                """
+                SELECT id_prestamo, tipo_solicitante, codigo_alumno, codigo_profesor,
+                       isbn, num_ejemplar, fecha_prestamo, fecha_limite,
+                       fecha_devolucion, estatus, multa
+                FROM prestamo
+                WHERE id_prestamo = %s
+                """,
+                (self.input_id.value(),)
+            )
+            fila = cursor.fetchone()
+
+            if not fila:
+                self.resultado.setText("No se encontró ningún préstamo con ese ID.")
+                return
+
+            columnas = [
+                "ID préstamo", "Tipo solicitante", "Código alumno", "Código profesor",
+                "ISBN", "Número de ejemplar", "Fecha préstamo", "Fecha límite",
+                "Fecha devolución", "Estatus", "Multa"
+            ]
+            self.resultado.setHtml("<br>".join(f"<b>{columna}:</b> {valor}" for columna, valor in zip(columnas, fila)))
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error en la búsqueda:\n{e}")
+
+
+class ConsultasPrestamos(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Consultas de préstamos")
+        self.resize(1050, 500)
+
+        layout = QtWidgets.QVBoxLayout()
+
+        titulo = QtWidgets.QLabel("LISTADO GENERAL DE PRÉSTAMOS")
+        titulo.setAlignment(QtCore.Qt.AlignCenter)
+        titulo.setStyleSheet("font: bold 14pt 'Arial'; color: #b45309; margin-bottom: 10px;")
+
+        self.tabla = QtWidgets.QTableWidget()
+        self.tabla.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.tabla.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tabla.setAlternatingRowColors(True)
+        self.tabla.setStyleSheet("QHeaderView::section { background-color: #f59e0b; color: white; font-weight: bold; }")
+
+        self.btn_actualizar = QtWidgets.QPushButton("Actualizar")
+        self.btn_actualizar.clicked.connect(self.cargar_datos)
+
+        layout.addWidget(titulo)
+        layout.addWidget(self.tabla)
+        layout.addWidget(self.btn_actualizar)
+        self.setLayout(layout)
+
+        self.cargar_datos()
+
+    def cargar_datos(self):
+        try:
+            cursor.execute(
+                """
+                SELECT id_prestamo, tipo_solicitante, codigo_alumno, codigo_profesor,
+                       isbn, num_ejemplar, fecha_prestamo, fecha_limite,
+                       fecha_devolucion, estatus, multa
+                FROM prestamo
+                ORDER BY id_prestamo ASC
+                """
+            )
+            filas = cursor.fetchall()
+
+            encabezados = [
+                "ID", "Solicitante", "Alumno", "Profesor", "ISBN", "Ejemplar",
+                "Fecha préstamo", "Fecha límite", "Fecha devolución", "Estatus", "Multa"
+            ]
+
+            self.tabla.setRowCount(len(filas))
+            self.tabla.setColumnCount(len(encabezados))
+            self.tabla.setHorizontalHeaderLabels(encabezados)
+
+            for i, fila in enumerate(filas):
+                for j, valor in enumerate(fila):
+                    self.tabla.setItem(i, j, QtWidgets.QTableWidgetItem("" if valor is None else str(valor)))
+
+            self.tabla.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los préstamos:\n{e}")
 
 
 # 🔹 FORMULARIO DE REGISTRO DE EMPLEADOS
@@ -763,8 +1162,8 @@ class ConsultaIndividual(QDialog):
         codigo = self.input_codigo.text()
         try:
             # Determinamos la columna de código según la tabla (alumnos usa 'codigo', empleado usa 'codigo', profesor usa 'codigo')
-            # En tu caso, todas parecen usar 'codigo' ahora.
-            cursor.execute(f"SELECT * FROM {self.tabla_nombre} WHERE codigo = %s", (codigo,))
+            key_col = "isbn" if self.tabla_nombre == "libros" else "codigo"
+            cursor.execute(f"SELECT * FROM {self.tabla_nombre} WHERE {key_col} = %s", (codigo,))
             fila = cursor.fetchone()
             
             if fila:
@@ -777,47 +1176,360 @@ class ConsultaIndividual(QDialog):
                     texto += f"<b>{col.capitalize()}:</b> {val}<br>"
                 self.resultado.setHtml(texto)
             else:
-                self.resultado.setText("No se encontró ningún registro con ese código.")
+                self.resultado.setText(f"No se encontró ningún registro con ese {'ISBN' if self.tabla_nombre == 'libros' else 'código'}.")
         except Exception as e:
             QtWidgets.QMessageBox.warning(self, "Error", f"Error en la búsqueda: {e}")
 
 
-class EditarRegistro(QDialog):
-    def __init__(self, tabla):
+class EditarEmpleado(QDialog):
+    def __init__(self):
         super().__init__()
-        self.tabla_nombre = tabla
-        self.setWindowTitle(f"Cambiar Datos - {tabla.capitalize()}")
-        self.resize(400, 200)
+        self.setWindowTitle("Editar Empleado")
+        self.resize(400, 350)
         
         layout = QtWidgets.QVBoxLayout()
-        form_layout = QtWidgets.QFormLayout()
+        self.form_layout = QtWidgets.QFormLayout()
+        
+        self.input_buscar = QtWidgets.QLineEdit()
+        self.btn_buscar = QtWidgets.QPushButton("Buscar")
+        self.btn_buscar.clicked.connect(self.buscar)
+        
+        search_layout = QtWidgets.QHBoxLayout()
+        search_layout.addWidget(QtWidgets.QLabel("Código a editar:"))
+        search_layout.addWidget(self.input_buscar)
+        search_layout.addWidget(self.btn_buscar)
+        layout.addLayout(search_layout)
         
         self.input_codigo = QtWidgets.QLineEdit()
+        self.input_codigo.setReadOnly(True)
         self.input_nombre = QtWidgets.QLineEdit()
+        self.input_direccion = QtWidgets.QLineEdit()
+        self.input_telefono = QtWidgets.QLineEdit()
+        self.combo_sexo = QtWidgets.QComboBox()
+        self.combo_sexo.addItems(["F", "M"])
+        self.input_fecha = QtWidgets.QLineEdit()
+        self.combo_turno = QtWidgets.QComboBox()
+        self.combo_turno.addItems(["Matutino", "Vespertino"])
         
-        form_layout.addRow("Código del registro:", self.input_codigo)
-        form_layout.addRow("Nuevo Nombre:", self.input_nombre)
+        self.form_layout.addRow("Código (Bloqueado):", self.input_codigo)
+        self.form_layout.addRow("Nombre:", self.input_nombre)
+        self.form_layout.addRow("Dirección:", self.input_direccion)
+        self.form_layout.addRow("Teléfono:", self.input_telefono)
+        self.form_layout.addRow("Sexo:", self.combo_sexo)
+        self.form_layout.addRow("Fecha de nac:", self.input_fecha)
+        self.form_layout.addRow("Turno:", self.combo_turno)
         
         self.btn_actualizar = QtWidgets.QPushButton("Actualizar")
+        self.btn_actualizar.setEnabled(False)
         self.btn_actualizar.clicked.connect(self.actualizar)
         
-        layout.addLayout(form_layout)
+        layout.addLayout(self.form_layout)
         layout.addWidget(self.btn_actualizar)
         self.setLayout(layout)
+
+    def buscar(self):
+        codigo = self.input_buscar.text().strip()
+        if not codigo: return
+        try:
+            cursor.execute("SELECT codigo, nombre, direccion, telefono, sexo, fecha_nac, turno FROM empleado WHERE codigo = %s", (codigo,))
+            fila = cursor.fetchone()
+            if fila:
+                self.input_codigo.setText(str(fila[0]))
+                self.input_nombre.setText(str(fila[1]) if fila[1] else "")
+                self.input_direccion.setText(str(fila[2]) if fila[2] else "")
+                self.input_telefono.setText(str(fila[3]) if fila[3] else "")
+                self.combo_sexo.setCurrentText(str(fila[4]) if fila[4] else "F")
+                self.input_fecha.setText(str(fila[5]) if fila[5] else "")
+                self.combo_turno.setCurrentText(str(fila[6]) if fila[6] else "Matutino")
+                self.btn_actualizar.setEnabled(True)
+                QtWidgets.QMessageBox.information(self, "Encontrado", "Datos cargados. Ya puedes editarlos.")
+            else:
+                QtWidgets.QMessageBox.warning(self, "No encontrado", "No existe empleado con ese código.")
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error de búsqueda: {e}")
 
     def actualizar(self):
         try:
             codigo = self.input_codigo.text()
             nombre = self.input_nombre.text()
+            direccion = self.input_direccion.text()
+            telefono = self.input_telefono.text()
+            sexo = self.combo_sexo.currentText()
+            fecha = self.input_fecha.text()
+            turno = self.combo_turno.currentText()
             
-            cursor.execute(f"UPDATE {self.tabla_nombre} SET nombre = %s WHERE codigo = %s", (nombre, codigo))
+            cursor.execute("UPDATE empleado SET nombre=%s, direccion=%s, telefono=%s, sexo=%s, fecha_nac=%s, turno=%s WHERE codigo=%s",
+                           (nombre, direccion, telefono, sexo, fecha, turno, codigo))
             conexion.commit()
-            
             if cursor.rowcount > 0:
-                QtWidgets.QMessageBox.information(self, "Éxito", "Registro actualizado correctamente.")
+                QtWidgets.QMessageBox.information(self, "Éxito", "Empleado actualizado correctamente.")
                 self.close()
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo actualizar: {e}")
+
+class EditarAlumno(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Editar Alumno")
+        self.resize(400, 400)
+        
+        layout = QtWidgets.QVBoxLayout()
+        self.form_layout = QtWidgets.QFormLayout()
+        
+        self.input_buscar = QtWidgets.QLineEdit()
+        self.btn_buscar = QtWidgets.QPushButton("Buscar")
+        self.btn_buscar.clicked.connect(self.buscar)
+        
+        search_layout = QtWidgets.QHBoxLayout()
+        search_layout.addWidget(QtWidgets.QLabel("Código a editar:"))
+        search_layout.addWidget(self.input_buscar)
+        search_layout.addWidget(self.btn_buscar)
+        layout.addLayout(search_layout)
+        
+        self.input_codigo = QtWidgets.QLineEdit()
+        self.input_codigo.setReadOnly(True)
+        self.input_nombre = QtWidgets.QLineEdit()
+        self.input_carrera = QtWidgets.QLineEdit()
+        self.input_correo = QtWidgets.QLineEdit()
+        self.input_direccion = QtWidgets.QLineEdit()
+        self.input_telefono = QtWidgets.QLineEdit()
+        self.combo_sexo = QtWidgets.QComboBox()
+        self.combo_sexo.addItems(["F", "M"])
+        self.input_fecha_nac = QtWidgets.QLineEdit()
+        
+        self.form_layout.addRow("Código (Bloqueado):", self.input_codigo)
+        self.form_layout.addRow("Nombre:", self.input_nombre)
+        self.form_layout.addRow("Carrera:", self.input_carrera)
+        self.form_layout.addRow("Correo:", self.input_correo)
+        self.form_layout.addRow("Dirección:", self.input_direccion)
+        self.form_layout.addRow("Teléfono:", self.input_telefono)
+        self.form_layout.addRow("Sexo:", self.combo_sexo)
+        self.form_layout.addRow("Fecha Nac.:", self.input_fecha_nac)
+        
+        self.btn_actualizar = QtWidgets.QPushButton("Actualizar")
+        self.btn_actualizar.setEnabled(False)
+        self.btn_actualizar.clicked.connect(self.actualizar)
+        
+        layout.addLayout(self.form_layout)
+        layout.addWidget(self.btn_actualizar)
+        self.setLayout(layout)
+
+    def buscar(self):
+        codigo = self.input_buscar.text().strip()
+        if not codigo: return
+        try:
+            cursor.execute("SELECT codigo, nombre, carrera, correo, direccion, telefono, sexo, fecha_nac FROM alumnos WHERE codigo = %s", (codigo,))
+            fila = cursor.fetchone()
+            if fila:
+                self.input_codigo.setText(str(fila[0]))
+                self.input_nombre.setText(str(fila[1]) if fila[1] else "")
+                self.input_carrera.setText(str(fila[2]) if fila[2] else "")
+                self.input_correo.setText(str(fila[3]) if fila[3] else "")
+                self.input_direccion.setText(str(fila[4]) if fila[4] else "")
+                self.input_telefono.setText(str(fila[5]) if fila[5] else "")
+                self.combo_sexo.setCurrentText(str(fila[6]) if fila[6] else "F")
+                self.input_fecha_nac.setText(str(fila[7]) if fila[7] else "")
+                self.btn_actualizar.setEnabled(True)
+                QtWidgets.QMessageBox.information(self, "Encontrado", "Datos cargados.")
             else:
-                QtWidgets.QMessageBox.warning(self, "Error", "No se encontró el registro o no hubo cambios.")
+                QtWidgets.QMessageBox.warning(self, "No encontrado", "No existe alumno con ese código.")
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error de búsqueda: {e}")
+
+    def actualizar(self):
+        try:
+            codigo = self.input_codigo.text()
+            nombre = self.input_nombre.text()
+            carrera = self.input_carrera.text()
+            correo = self.input_correo.text()
+            direccion = self.input_direccion.text()
+            telefono = self.input_telefono.text()
+            sexo = self.combo_sexo.currentText()
+            fecha = self.input_fecha_nac.text()
+            
+            cursor.execute("UPDATE alumnos SET nombre=%s, carrera=%s, correo=%s, direccion=%s, telefono=%s, sexo=%s, fecha_nac=%s WHERE codigo=%s",
+                           (nombre, carrera, correo, direccion, telefono, sexo, fecha, codigo))
+            conexion.commit()
+            if cursor.rowcount > 0:
+                QtWidgets.QMessageBox.information(self, "Éxito", "Alumno actualizado correctamente.")
+                self.close()
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo actualizar: {e}")
+
+class EditarProfesor(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Editar Profesor")
+        self.resize(400, 400)
+        
+        layout = QtWidgets.QVBoxLayout()
+        self.form_layout = QtWidgets.QFormLayout()
+        
+        self.input_buscar = QtWidgets.QLineEdit()
+        self.btn_buscar = QtWidgets.QPushButton("Buscar")
+        self.btn_buscar.clicked.connect(self.buscar)
+        
+        search_layout = QtWidgets.QHBoxLayout()
+        search_layout.addWidget(QtWidgets.QLabel("Código a editar:"))
+        search_layout.addWidget(self.input_buscar)
+        search_layout.addWidget(self.btn_buscar)
+        layout.addLayout(search_layout)
+        
+        self.input_codigo = QtWidgets.QLineEdit()
+        self.input_codigo.setReadOnly(True)
+        self.input_nombre = QtWidgets.QLineEdit()
+        self.input_departamento = QtWidgets.QLineEdit()
+        self.input_correo = QtWidgets.QLineEdit()
+        self.input_direccion = QtWidgets.QLineEdit()
+        self.input_telefono = QtWidgets.QLineEdit()
+        self.combo_sexo = QtWidgets.QComboBox()
+        self.combo_sexo.addItems(["F", "M"])
+        self.input_fecha_nac = QtWidgets.QLineEdit()
+        
+        self.form_layout.addRow("Código (Bloqueado):", self.input_codigo)
+        self.form_layout.addRow("Nombre:", self.input_nombre)
+        self.form_layout.addRow("Departamento:", self.input_departamento)
+        self.form_layout.addRow("Correo:", self.input_correo)
+        self.form_layout.addRow("Dirección:", self.input_direccion)
+        self.form_layout.addRow("Teléfono:", self.input_telefono)
+        self.form_layout.addRow("Sexo:", self.combo_sexo)
+        self.form_layout.addRow("Fecha Nac.:", self.input_fecha_nac)
+        
+        self.btn_actualizar = QtWidgets.QPushButton("Actualizar")
+        self.btn_actualizar.setEnabled(False)
+        self.btn_actualizar.clicked.connect(self.actualizar)
+        
+        layout.addLayout(self.form_layout)
+        layout.addWidget(self.btn_actualizar)
+        self.setLayout(layout)
+
+    def buscar(self):
+        codigo = self.input_buscar.text().strip()
+        if not codigo: return
+        try:
+            cursor.execute("SELECT codigo, nombre, departamento, correo, direccion, telefono, sexo, fecha_nac FROM maestros WHERE codigo = %s", (codigo,))
+            fila = cursor.fetchone()
+            if fila:
+                self.input_codigo.setText(str(fila[0]))
+                self.input_nombre.setText(str(fila[1]) if fila[1] else "")
+                self.input_departamento.setText(str(fila[2]) if fila[2] else "")
+                self.input_correo.setText(str(fila[3]) if fila[3] else "")
+                self.input_direccion.setText(str(fila[4]) if fila[4] else "")
+                self.input_telefono.setText(str(fila[5]) if fila[5] else "")
+                self.combo_sexo.setCurrentText(str(fila[6]) if fila[6] else "F")
+                self.input_fecha_nac.setText(str(fila[7]) if fila[7] else "")
+                self.btn_actualizar.setEnabled(True)
+                QtWidgets.QMessageBox.information(self, "Encontrado", "Datos cargados.")
+            else:
+                QtWidgets.QMessageBox.warning(self, "No encontrado", "No existe profesor con ese código.")
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error de búsqueda: {e}")
+
+    def actualizar(self):
+        try:
+            codigo = self.input_codigo.text()
+            nombre = self.input_nombre.text()
+            departamento = self.input_departamento.text()
+            correo = self.input_correo.text()
+            direccion = self.input_direccion.text()
+            telefono = self.input_telefono.text()
+            sexo = self.combo_sexo.currentText()
+            fecha = self.input_fecha_nac.text()
+            
+            cursor.execute("UPDATE maestros SET nombre=%s, departamento=%s, correo=%s, direccion=%s, telefono=%s, sexo=%s, fecha_nac=%s WHERE codigo=%s",
+                           (nombre, departamento, correo, direccion, telefono, sexo, fecha, codigo))
+            conexion.commit()
+            if cursor.rowcount > 0:
+                QtWidgets.QMessageBox.information(self, "Éxito", "Maestro actualizado correctamente.")
+                self.close()
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo actualizar: {e}")
+
+class EditarLibro(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Editar Libro")
+        self.resize(400, 350)
+        
+        layout = QtWidgets.QVBoxLayout()
+        self.form_layout = QtWidgets.QFormLayout()
+        
+        self.input_buscar = QtWidgets.QLineEdit()
+        self.btn_buscar = QtWidgets.QPushButton("Buscar")
+        self.btn_buscar.clicked.connect(self.buscar)
+        
+        search_layout = QtWidgets.QHBoxLayout()
+        search_layout.addWidget(QtWidgets.QLabel("ISBN a editar:"))
+        search_layout.addWidget(self.input_buscar)
+        search_layout.addWidget(self.btn_buscar)
+        layout.addLayout(search_layout)
+        
+        self.input_isbn = QtWidgets.QLineEdit()
+        self.input_isbn.setReadOnly(True)
+        self.input_titulo = QtWidgets.QLineEdit()
+        self.input_autores = QtWidgets.QLineEdit()
+        self.input_editorial = QtWidgets.QLineEdit()
+        self.input_anio = QtWidgets.QLineEdit()
+        self.input_ejemplares = QtWidgets.QLineEdit()
+        
+        self.form_layout.addRow("ISBN (Bloqueado):", self.input_isbn)
+        self.form_layout.addRow("Título:", self.input_titulo)
+        self.form_layout.addRow("Autores:", self.input_autores)
+        self.form_layout.addRow("Editorial:", self.input_editorial)
+        self.form_layout.addRow("Año Pub.:", self.input_anio)
+        self.form_layout.addRow("Nº Ejemplares:", self.input_ejemplares)
+        
+        self.btn_actualizar = QtWidgets.QPushButton("Actualizar")
+        self.btn_actualizar.setEnabled(False)
+        self.btn_actualizar.clicked.connect(self.actualizar)
+        
+        layout.addLayout(self.form_layout)
+        layout.addWidget(self.btn_actualizar)
+        self.setLayout(layout)
+
+    def buscar(self):
+        isbn = self.input_buscar.text().strip()
+        if not isbn: return
+        try:
+            cursor.execute("SELECT isbn, titulo, autores, editorial, año_publicacion, num_ejemplar FROM libros WHERE isbn = %s", (isbn,))
+            fila = cursor.fetchone()
+            if fila:
+                self.input_isbn.setText(str(fila[0]))
+                self.input_titulo.setText(str(fila[1]) if fila[1] else "")
+                self.input_autores.setText(str(fila[2]) if fila[2] else "")
+                self.input_editorial.setText(str(fila[3]) if fila[3] else "")
+                self.input_anio.setText(str(fila[4]) if fila[4] is not None else "")
+                self.input_ejemplares.setText(str(fila[5]) if fila[5] is not None else "")
+                self.btn_actualizar.setEnabled(True)
+                QtWidgets.QMessageBox.information(self, "Encontrado", "Datos cargados.")
+            else:
+                QtWidgets.QMessageBox.warning(self, "No encontrado", "No existe libro con ese ISBN.")
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Error de búsqueda: {e}")
+
+    def actualizar(self):
+        try:
+            isbn = self.input_isbn.text()
+            titulo = self.input_titulo.text()
+            autores = self.input_autores.text()
+            editorial = self.input_editorial.text()
+            anio_txt = self.input_anio.text().strip()
+            ejemplares_txt = self.input_ejemplares.text().strip()
+            
+            anio = int(anio_txt) if anio_txt else None
+            ejemplares = int(ejemplares_txt) if ejemplares_txt else None
+            
+            cursor.execute("UPDATE libros SET titulo=%s, autores=%s, editorial=%s, año_publicacion=%s, num_ejemplar=%s WHERE isbn=%s",
+                           (titulo, autores, editorial, anio, ejemplares, isbn))
+            conexion.commit()
+            if cursor.rowcount > 0:
+                QtWidgets.QMessageBox.information(self, "Éxito", "Libro actualizado correctamente.")
+                self.close()
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Error de Datos", "El Año y Nº de Ejemplares deben ser números.")
         except Exception as e:
             conexion.rollback()
             QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo actualizar: {e}")
@@ -833,12 +1545,14 @@ class EliminarRegistro(QDialog):
         layout = QtWidgets.QVBoxLayout()
         
         self.input_codigo = QtWidgets.QLineEdit()
-        self.input_codigo.setPlaceholderText("Código a eliminar")
+        key_label = "ISBN a eliminar" if tabla == "libros" else "Código a eliminar"
+        self.input_codigo.setPlaceholderText(key_label)
         
         self.btn_eliminar = QtWidgets.QPushButton("Eliminar")
         self.btn_eliminar.clicked.connect(self.eliminar)
         
-        layout.addWidget(QtWidgets.QLabel(f"¿Qué código deseas eliminar de {tabla}?"))
+        prompt_label = f"¿Qué ISBN deseas eliminar de {tabla}?" if tabla == "libros" else f"¿Qué código deseas eliminar de {tabla}?"
+        layout.addWidget(QtWidgets.QLabel(prompt_label))
         layout.addWidget(self.input_codigo)
         layout.addWidget(self.btn_eliminar)
         self.setLayout(layout)
@@ -851,18 +1565,119 @@ class EliminarRegistro(QDialog):
         
         if confirm == QtWidgets.QMessageBox.Yes:
             try:
-                cursor.execute(f"DELETE FROM {self.tabla_nombre} WHERE codigo = %s", (codigo,))
+                key_col = "isbn" if self.tabla_nombre == "libros" else "codigo"
+                cursor.execute(f"DELETE FROM {self.tabla_nombre} WHERE {key_col} = %s", (codigo,))
                 conexion.commit()
                 
                 if cursor.rowcount > 0:
                     QtWidgets.QMessageBox.information(self, "Éxito", "Registro eliminado correctamente.")
                     self.close()
                 else:
-                    QtWidgets.QMessageBox.warning(self, "Error", "No se encontró el registro.")
+                    QtWidgets.QMessageBox.warning(self, "Error", f"No se encontró el registro con ese {'ISBN' if self.tabla_nombre == 'libros' else 'código'}.")
             except Exception as e:
                 conexion.rollback()
                 QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo eliminar: {e}")
+class RegistroLibro(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Registrar Libro")
+        self.resize(400, 300)
+        
+        layout = QtWidgets.QVBoxLayout()
+        form_layout = QtWidgets.QFormLayout()
+        
+        self.input_isbn = QtWidgets.QLineEdit()
+        self.input_titulo = QtWidgets.QLineEdit()
+        self.input_autores = QtWidgets.QLineEdit()
+        self.input_editorial = QtWidgets.QLineEdit()
+        self.input_anio = QtWidgets.QLineEdit()
+        self.input_ejemplares = QtWidgets.QLineEdit()
+        
+        form_layout.addRow("ISBN:", self.input_isbn)
+        form_layout.addRow("Título:", self.input_titulo)
+        form_layout.addRow("Autores:", self.input_autores)
+        form_layout.addRow("Editorial:", self.input_editorial)
+        form_layout.addRow("Año Publicación:", self.input_anio)
+        form_layout.addRow("Nº Ejemplares:", self.input_ejemplares)
+        
+        self.btn_registrar = QtWidgets.QPushButton("Registrar")
+        self.btn_registrar.clicked.connect(self.registrar)
+        
+        layout.addLayout(form_layout)
+        layout.addWidget(self.btn_registrar)
+        self.setLayout(layout)
 
+    def registrar(self):
+        isbn = self.input_isbn.text().strip()
+        titulo = self.input_titulo.text().strip()
+        autores = self.input_autores.text().strip()
+        editorial = self.input_editorial.text().strip()
+        anio = self.input_anio.text().strip()
+        ejemplares = self.input_ejemplares.text().strip()
+        
+        if not isbn or not titulo:
+            QtWidgets.QMessageBox.warning(self, "Error de Datos", "ISBN y Título son requeridos.")
+            return
+            
+        try:
+            anio_val = int(anio) if anio else None
+            ejemplares_val = int(ejemplares) if ejemplares else None
+            
+            cursor.execute(
+                "INSERT INTO libros (isbn, titulo, autores, editorial, año_publicacion, num_ejemplar) VALUES (%s, %s, %s, %s, %s, %s)",
+                (isbn, titulo, autores, editorial, anio_val, ejemplares_val)
+            )
+            conexion.commit()
+            QtWidgets.QMessageBox.information(self, "Éxito", "Libro registrado correctamente.")
+            self.close()
+        except ValueError:
+            QtWidgets.QMessageBox.warning(self, "Error de Datos", "Año y Nº Ejemplares deben ser números enteros.")
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudo registrar el libro: {e}")
+
+
+class ConsultaGeneralLibro(QDialog):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Consulta General de Libros")
+        self.resize(850, 500)
+        
+        layout = QtWidgets.QVBoxLayout()
+        
+        self.titulo = QtWidgets.QLabel("LISTADO GENERAL DE LIBROS")
+        self.titulo.setStyleSheet("font: bold 14pt 'Arial'; color: #10b981; margin-bottom: 10px;")
+        self.titulo.setAlignment(QtCore.Qt.AlignCenter)
+        layout.addWidget(self.titulo)
+        
+        self.tabla = QtWidgets.QTableWidget()
+        self.tabla.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.tabla.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectRows)
+        self.tabla.setAlternatingRowColors(True)
+        self.tabla.setStyleSheet("QHeaderView::section { background-color: #10b981; color: white; font-weight: bold; }")
+        
+        layout.addWidget(self.tabla)
+        self.setLayout(layout)
+        
+        self.cargar_datos()
+
+    def cargar_datos(self):
+        try:
+            cursor.execute("SELECT isbn, titulo, autores, editorial, año_publicacion, num_ejemplar FROM libros ORDER BY isbn ASC")
+            filas = cursor.fetchall()
+            
+            self.tabla.setRowCount(len(filas))
+            self.tabla.setColumnCount(6)
+            self.tabla.setHorizontalHeaderLabels(["ISBN", "Título", "Autores", "Editorial", "Año Publicación", "Nº Ejemplares"])
+            
+            for i, fila in enumerate(filas):
+                for j, valor in enumerate(fila):
+                    item = QtWidgets.QTableWidgetItem(str(valor))
+                    self.tabla.setItem(i, j, item)
+            
+            self.tabla.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.Stretch)
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"No se pudieron cargar los datos: {e}")
 
 
 #VENTANA DE LOGEO
@@ -871,14 +1686,17 @@ class MiVentana(QDialog):
         super().__init__()
         import os
         base_path = os.path.dirname(__file__)
-        uic.loadUi(os.path.join(base_path, 'AV1', '6.ui'), self)
+        uic.loadUi(os.path.join(base_path, '6.ui'), self)
         
         # Reducir el tamaño de fuente conservando el tipo de letra original para que no se encimen
-        self.label_2.setStyleSheet('color: white; background-color: none; font: 25 24pt "Bodoni MT Poster Compressed";')
-        self.label_3.setStyleSheet('color: white; background-color: none; font: 25 24pt "Bodoni MT Poster Compressed";')
+        self.titleLabel.setStyleSheet('color: white; background-color: none; font: 25 24pt "Bodoni MT Poster Compressed";')
+        self.loginTitle.setStyleSheet('color: white; background-color: none; font: 25 24pt "Bodoni MT Poster Compressed";')
         
         self.setWindowTitle("LibraryControl - Login")
-        self.setWindowIcon(QIcon(os.path.join(base_path, 'icono.ico')))
+        icon_path = os.path.join(base_path, 'icono.ico')
+        if not os.path.exists(icon_path):
+            icon_path = os.path.join(os.path.dirname(base_path), 'icono.ico')
+        self.setWindowIcon(QIcon(icon_path))
 
         self.btn_login.clicked.connect(self.login)
         
@@ -886,32 +1704,37 @@ class MiVentana(QDialog):
         self.input_pass.setEchoMode(QtWidgets.QLineEdit.Password)
 
     def login(self):
-        usuario = self.input_user.text()
-        password = self.input_pass.text()
+        try:
+            usuario = self.input_user.text().strip()
+            password = self.input_pass.text()
 
-        consulta = 'SELECT * FROM usuario WHERE nombre_del_usuario = %s AND contrasena = %s'
-        cursor.execute(consulta, (usuario, password))
+            consulta = 'SELECT * FROM usuario WHERE nombre_del_usuario = %s AND contrasena = %s'
+            cursor.execute(consulta, (usuario, password))
 
-        resultado = cursor.fetchone()
+            resultado = cursor.fetchone()
 
-        if resultado:
-            QtWidgets.QMessageBox.information(self, "Login", "Login correcto")
-
-            #Abrir el main
-            self.main = Main(usuario)
-            self.main.show()
-
-            #Cerrar login
-            self.close()
-
-        else:
-            QtWidgets.QMessageBox.warning(self, "Error", "Usuario o contraseña incorrectos")
+            if resultado:
+                # Mantener una referencia fuerte para que Qt no destruya la ventana principal.
+                self.main = Main(usuario)
+                ventanas_abiertas.append(self.main)
+                QtWidgets.QApplication.instance().main = self.main
+                self.main.show()
+                self.main.raise_()
+                self.main.activateWindow()
+                self.hide()
+            else:
+                QtWidgets.QMessageBox.warning(self, "Error", "Usuario o contraseña incorrectos")
+        except Exception as e:
+            conexion.rollback()
+            QtWidgets.QMessageBox.critical(self, "Error", f"No se pudo iniciar sesión:\n{e}")
 
 
 #EJECUCIÓN
 app = QApplication(sys.argv)
+app.setQuitOnLastWindowClosed(True)
 
 ventana = MiVentana()
+ventanas_abiertas.append(ventana)
 ventana.show()
 
 app.exec()
